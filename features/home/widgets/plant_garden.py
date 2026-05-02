@@ -26,7 +26,7 @@ class PlantGarden(ft.Container):
         self._tokens = tokens
         self._plant_container = ft.Container(
             content=get_plant_stage_asset(0),
-            animate_scale=ft.Animation(400, ft.AnimationCurve.BOUNCE_OUT),
+            animate_scale=ft.Animation(400, ft.AnimationCurve.BOUNCE_OUT),  # type: ignore
             scale=1.0,
             alignment=ft.Alignment(0, 0),
         )
@@ -65,12 +65,10 @@ class PlantGarden(ft.Container):
             return 0
 
     def celebrate(self) -> None:
-        self._plant_container.scale = 1.25
-        try: self._plant_container.update()
-        except Exception: pass
-        def reset() -> None:
-            import time; time.sleep(0.5)
-            self._plant_container.scale = 1.0
-            try: self._plant_container.update()
-            except Exception: pass
-        threading.Thread(target=reset, daemon=True).start()
+        from core.design.animations import pulse_scale, reset_scale
+        pulse_scale(self._plant_container, target=1.25)
+        import threading, time
+        def _reset():
+            time.sleep(0.5)
+            reset_scale(self._plant_container)
+        threading.Thread(target=_reset, daemon=True).start()

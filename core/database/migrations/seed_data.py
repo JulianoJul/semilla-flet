@@ -76,6 +76,7 @@ def _seed_ui_copy(c: sqlite3.Connection) -> None:
         ("archetype_2", "🌿 El Jardinero — Cuido lo que ya tengo", "onboarding"),
         ("archetype_3", "🌳 El Podador — Necesito simplificar", "onboarding"),
         ("confirm_habit", "Plantar mi primera semilla", "onboarding"),
+        ("confirm_pact", "Acepto el pacto", "onboarding"),
         ("first_seed_title", "Tu primera semilla", "onboarding"),
         ("first_seed_hint", "Escribe un hábito que quieras cultivar", "onboarding"),
         ("pact_title", "Pacto de autocompasión", "onboarding"),
@@ -90,6 +91,9 @@ def _seed_ui_copy(c: sqlite3.Connection) -> None:
         ("ritual_button", "Elegir semillas de hoy", "home"),
         ("empty_today", "Elige hasta 3 semillas para hoy", "home"),
         ("chest_opened_prefix", "¡Has encontrado un cofre!", "gamification"),
+        ("chest_title", "¡Cofre encontrado!", "gamification"),
+        ("chest_open_label", "Abrir", "gamification"),
+        ("chest_reward", "¡Una recompensa especial! 🌱", "gamification"),
         ("badge_celebration", "¡Nueva insignia desbloqueada!", "gamification"),
         ("create_title", "Plantar nueva semilla", "create"),
         ("confirm_a", "Plantar hábito", "create"),
@@ -99,6 +103,9 @@ def _seed_ui_copy(c: sqlite3.Connection) -> None:
         ("intention_hint", "Si [situación], entonces [haré]...", "create"),
         ("coping_hint", "Si me resulta difícil, puedo...", "create"),
         ("horizon_prefix", "Horizonte en", "home"),
+        ("new_activity_title", "Plantar nueva semilla", "create"),
+        ("activity_name_hint", "Nombre de tu semilla...", "create"),
+        ("implementation_hint", "Intención de implementación...", "create"),
     ])
 
 

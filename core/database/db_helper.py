@@ -44,14 +44,12 @@ class DBHelper:
 
     # --- CONNECTION ---
     def get_connection(self) -> sqlite3.Connection:
-        if self._db_path == ":memory:":
-            if DBHelper._conn is None:
-                DBHelper._conn = self._make_conn()
-            return DBHelper._conn
-        return self._make_conn()
+        if DBHelper._conn is None:
+            DBHelper._conn = self._make_conn()
+        return DBHelper._conn
 
     def _make_conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._db_path)
+        conn = sqlite3.connect(self._db_path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute("PRAGMA journal_mode = WAL")
@@ -69,6 +67,3 @@ class DBHelper:
         except Exception:
             conn.rollback()
             raise
-        finally:
-            if self._db_path != ":memory:":
-                conn.close()

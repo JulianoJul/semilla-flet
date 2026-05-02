@@ -29,11 +29,23 @@ class StepPact(ft.Column):
         self._on_done = on_done
         self._accepted = False
         self._checkbox = ft.Checkbox(
-            label=self._copy("pact_text"),
-            label_style=ft.TextStyle(color=tokens.color_text_main, size=14),
             active_color=tokens.color_primary,
+            check_color=tokens.color_shadow_light,
         )
         self._checkbox.on_change = self._handle_check
+
+        pact_row = ft.Row(
+            controls=[
+                self._checkbox,
+                ft.Text(
+                    self._copy("pact_text"),
+                    color=tokens.color_text_main,
+                    size=14,
+                    expand=True,
+                ),
+            ],
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
 
         self._btn_container = ft.Container()
         self._rebuild_btn(disabled=True)
@@ -42,14 +54,14 @@ class StepPact(ft.Column):
             ft.Container(height=40),
             make_text(self._copy("pact_title"), TextStyles.heading2),
             ft.Container(height=8),
-            neu_card(content=self._checkbox, tokens=tokens, padding=20, width=300),
+            neu_card(content=pact_row, tokens=tokens, padding=20, width=300),
             self._btn_container,
         ]
         self.controls = controls
 
     def _rebuild_btn(self, disabled: bool) -> None:
         self._btn_container.content = NeuButton(
-            label=self._copy("confirm_habit"),
+            label=self._copy("confirm_pact"),
             on_click=self._handle_confirm,
             tokens=self._tokens,
             disabled=disabled,

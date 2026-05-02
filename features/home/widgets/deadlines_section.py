@@ -62,6 +62,7 @@ class DeadlinesSection(ft.Column):
                         color=self._tokens.color_text_main,
                         size=16,
                         weight=ft.FontWeight.W_500,
+                        overflow=ft.TextOverflow.VISIBLE,
                     ),
                     ft.Row(
                         controls=[

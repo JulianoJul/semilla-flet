@@ -22,6 +22,7 @@ class HabitsSection(ft.Column):
         section_title: str = "Mis hábitos",
     ) -> None:
         super().__init__(spacing=12)
+        self._tokens = tokens
         chips: list[ft.Control] = [
             self._habit_chip(a, on_select) for a in activities
         ]
@@ -35,45 +36,29 @@ class HabitsSection(ft.Column):
     def _habit_chip(
         self, activity: Activity, on_select: Callable[[Activity], None],
     ) -> ft.Control:
-        streak = self._load_streak(activity.id or 0)
+        from features.gamification.streak_indicator import StreakIndicator
         card = neu_card(
             content=ft.Column(
                 controls=[
                     ft.Text(
-                        activity.title[:12] + ("…" if len(activity.title) > 12 else ""),
-                        size=13,
+                        activity.title,
+                        size=12,
+                        color=self._tokens.color_text_main,
                         text_align=ft.TextAlign.CENTER,
+                        no_wrap=False,
+                        overflow=ft.TextOverflow.VISIBLE,
                     ),
-                    ft.ProgressRing(
-                        value=min(streak / 7.0, 1.0),
-                        width=32, height=32, stroke_width=3,
-                    ),
-                    ft.Text(
-                        f"🔥 {streak}",
-                        size=11,
-                        text_align=ft.TextAlign.CENTER,
-                    ),
+                    StreakIndicator(activity_id=activity.id or 0, tokens=self._tokens),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=6,
             ),
+            tokens=self._tokens,
             radius_key="large",
             padding=12,
             width=90,
-            height=110,
         )
         return ft.GestureDetector(
             content=card,
             on_tap=lambda e, a=activity: on_select(a),
         )
-
-    def _load_streak(self, activity_id: int) -> int:
-        try:
-            from core.database.db_helper import DBHelper
-            row = DBHelper.instance().get_connection().execute(
-                "SELECT current_count FROM streaks WHERE activity_id=?",
-                (activity_id,),
-            ).fetchone()
-            return int(row["current_count"]) if row else 0
-        except Exception:
-            return 0

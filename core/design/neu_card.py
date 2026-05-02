@@ -34,14 +34,14 @@ def neu_card(
             ft.BoxShadow(
                 offset=ft.Offset(o, o),
                 blur_radius=float(t.shadow_blur // 2),
-                color=ft.colors.with_opacity(
+                color=ft.Colors.with_opacity(
                     t.shadow_dark_opacity, t.color_shadow_dark,
                 ),
             ),
             ft.BoxShadow(
                 offset=ft.Offset(-o, -o),
                 blur_radius=float(t.shadow_blur // 2),
-                color=ft.colors.with_opacity(
+                color=ft.Colors.with_opacity(
                     t.shadow_light_opacity, t.color_shadow_light,
                 ),
             ),
@@ -51,14 +51,14 @@ def neu_card(
             ft.BoxShadow(
                 offset=ft.Offset(-o, -o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.colors.with_opacity(
+                color=ft.Colors.with_opacity(
                     t.shadow_light_opacity, t.color_shadow_light,
                 ),
             ),
             ft.BoxShadow(
                 offset=ft.Offset(o, o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.colors.with_opacity(
+                color=ft.Colors.with_opacity(
                     t.shadow_dark_opacity, t.color_shadow_dark,
                 ),
             ),
@@ -72,4 +72,5 @@ def neu_card(
         width=width,
         height=height,
         shadow=shadows,
+        clip_behavior=ft.ClipBehavior.NONE,
     )

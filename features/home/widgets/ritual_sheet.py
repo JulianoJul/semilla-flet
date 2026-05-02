@@ -33,25 +33,29 @@ class RitualSheet(ft.BottomSheet):
 
         r = float(tokens.radius_large)
         super().__init__(
+            use_safe_area=True,
             content=ft.Container(
                 bgcolor=COLOR_BASE,
                 padding=24,
                 border_radius=ft.BorderRadius(r, r, 0, 0),
-                content=ft.Column(
-                    controls=[
-                        make_text(self._copy("today_title"), TextStyles.heading2),
-                        ft.Container(height=8),
-                        *rows,
-                        self._error,
-                        ft.Container(height=8),
-                        NeuButton(
-                            label=self._copy("ritual_button"),
-                            on_click=self._handle_confirm,
-                            tokens=tokens,
-                        ),
-                    ],
-                    scroll=ft.ScrollMode.AUTO,
-                    spacing=10,
+                content=ft.SafeArea(
+                    ft.Column(
+                        controls=[
+                            make_text(self._copy("today_title"), TextStyles.heading2),
+                            ft.Container(height=8),
+                            *rows,
+                            self._error,
+                            ft.Container(height=8),
+                            NeuButton(
+                                label=self._copy("ritual_button"),
+                                on_click=self._handle_confirm,
+                                tokens=tokens,
+                            ),
+                        ],
+                        scroll=ft.ScrollMode.AUTO,
+                        spacing=10,
+                    ),
+                    bottom=True,
                 ),
             ),
         )
@@ -61,6 +65,7 @@ class RitualSheet(ft.BottomSheet):
             label=activity.title,
             label_style=ft.TextStyle(color=self._tokens.color_text_main, size=15),
             active_color=self._tokens.color_primary,
+            check_color=self._tokens.color_shadow_light,
         )
         aid = activity.id or 0
         self._checkboxes[aid] = cb

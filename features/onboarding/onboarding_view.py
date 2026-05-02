@@ -26,7 +26,10 @@ class OnboardingView(ft.Column):
         self._switcher = ft.AnimatedSwitcher(
             content=self._build_step(0),
             transition=ft.AnimatedSwitcherTransition.FADE,
-            duration=350,
+            duration=400,
+            reverse_duration=200,
+            switch_in_curve=ft.AnimationCurve.EASE_IN,
+            switch_out_curve=ft.AnimationCurve.EASE_OUT,
             expand=True,
         )
         self.controls = [self._switcher]

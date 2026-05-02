@@ -16,6 +16,7 @@ from data.repositories.activity_repository_impl import ActivityRepositoryImpl
 from data.repositories.gamification_repository_impl import (
     GamificationRepositoryImpl,
 )
+from core.notifications.notification_service import NotificationService
 from domain.use_cases.complete_activity import CompleteActivityUseCase
 from domain.use_cases.create_activity import CreateActivityUseCase
 from domain.use_cases.get_today_intentions import GetTodayIntentionsUseCase
@@ -37,7 +38,8 @@ class AppContainer:
         self.activity_repo = ActivityRepositoryImpl(activity_ds)
         self.gamification_repo = GamificationRepositoryImpl(gamification_ds)
 
-        # --- USE CASES ---
+        self.notification_service = NotificationService()
+
         self.manage_streak_uc = ManageStreakUseCase(self.gamification_repo)
 
         self.create_activity_uc = CreateActivityUseCase(
@@ -45,7 +47,7 @@ class AppContainer:
         )
         self.complete_activity_uc = CompleteActivityUseCase(
             self.activity_repo, self.gamification_repo,
-            self.manage_streak_uc,
+            self.manage_streak_uc, self.notification_service,
         )
         self.get_today_intentions_uc = GetTodayIntentionsUseCase(
             self.activity_repo,

@@ -40,6 +40,7 @@ def test_first_completion_starts_streak():
 def test_consecutive_completions_grow_streak():
     aid = _make_activity()
     c = AppContainer.instance()
+    r = None
     for i in range(3):
         r = c.complete_activity_uc.execute(activity_id=aid)
         assert r.is_success()
@@ -49,7 +50,7 @@ def test_consecutive_completions_grow_streak():
         new_date = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
         s = type(s)(s.id, s.activity_id, s.current_count, s.best_count, new_date, s.shields_available, s.weekly_completion_rate, s.total_completions)
         c.gamification_repo.update_streak(s)
-    assert r.get_or_raise().streak.current_count == 3
+    assert r is not None and r.get_or_raise().streak.current_count == 3
 
 
 def test_best_count_updates():

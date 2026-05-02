@@ -29,7 +29,7 @@ class BacklogSection(ft.Column):
         self._list = ft.Container(
             content=ft.Column(controls=[], spacing=8),
             height=0,
-            animate=ft.Animation(300, ft.AnimationCurve.EASE_IN_OUT),
+            animate=ft.Animation(300, ft.AnimationCurve.EASE_IN_OUT),  # type: ignore
         )
         title_row = ft.GestureDetector(
             content=ft.Row(
@@ -44,7 +44,7 @@ class BacklogSection(ft.Column):
 
     def _toggle(self, e: ft.TapEvent) -> None:
         self._expanded = not self._expanded
-        self._list.height = len(self._activities) * 72 if self._expanded else 0
+        self._list.height = len(self._activities) * 90 if self._expanded else 0
         if self._expanded:
             self._list.content = ft.Column(
                 controls=[self._backlog_card(a) for a in self._activities],

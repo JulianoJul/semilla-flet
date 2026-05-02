@@ -30,18 +30,20 @@ _BADGE_EMOJI_MAP: dict[str, str] = {
     "racha_100": "👑",
 }
 
-_ICON_FALLBACK_MAP: dict[str, ft.icons] = {
-    "home": ft.icons.HOME_OUTLINED,
-    "add": ft.icons.ADD_CIRCLE_OUTLINE,
-    "check": ft.icons.CHECK_CIRCLE_OUTLINE,
-    "streak": ft.icons.LOCAL_FIRE_DEPARTMENT_OUTLINED,
-    "badge": ft.icons.EMOJI_EVENTS_OUTLINED,
-    "settings": ft.icons.SETTINGS_OUTLINED,
-    "plant": ft.icons.PARK_OUTLINED,
-    "calendar": ft.icons.CALENDAR_TODAY_OUTLINED,
-    "backlog": ft.icons.LIST_ALT_OUTLINED,
-    "shield": ft.icons.SHIELD_OUTLINED,
-    "chest": ft.icons.REDEEM_OUTLINED,
+from typing import Any
+
+_ICON_FALLBACK_MAP: dict[str, Any] = {
+    "home": ft.Icons.HOME_OUTLINED,
+    "add": ft.Icons.ADD_CIRCLE_OUTLINE,
+    "check": ft.Icons.CHECK_CIRCLE_OUTLINE,
+    "streak": ft.Icons.LOCAL_FIRE_DEPARTMENT_OUTLINED,
+    "badge": ft.Icons.EMOJI_EVENTS_OUTLINED,
+    "settings": ft.Icons.SETTINGS_OUTLINED,
+    "plant": ft.Icons.PARK_OUTLINED,
+    "calendar": ft.Icons.CALENDAR_TODAY_OUTLINED,
+    "backlog": ft.Icons.LIST_ALT_OUTLINED,
+    "shield": ft.Icons.SHIELD_OUTLINED,
+    "chest": ft.Icons.REDEEM_OUTLINED,
 }
 
 
@@ -119,5 +121,5 @@ def get_icon_asset(name: str, size: float = 24.0) -> ft.Control:
         return ft.Image(src=svg_path, width=size, height=size)
 
     # PLACEHOLDER: ft.Icon con el ícono Flet más cercano
-    fallback = _ICON_FALLBACK_MAP.get(name, ft.icons.HELP_OUTLINE)
-    return ft.Icon(name=fallback, size=size, color="#2E4A3E")
+    fallback = _ICON_FALLBACK_MAP.get(name, ft.Icons.HELP_OUTLINE)
+    return ft.Icon(fallback, size=size, color="#2E4A3E")

@@ -76,15 +76,32 @@ class ActivityLocalDatasource:
         conn.commit()
     # --- TODAY INTENTIONS ---
     def get_today_intentions(self) -> list[Activity]:
+        from domain.entities.today_intention import TodayIntention
         conn = self._db.get_connection()
         today = date.today().isoformat()
-        rows = conn.execute(
-            "SELECT a.* FROM activities a "
-            "JOIN today_intentions t ON a.id = t.activity_id "
-            "WHERE t.date = ? ORDER BY t.order_index",
+        
+        t_rows = conn.execute(
+            "SELECT * FROM today_intentions WHERE date = ? ORDER BY order_index",
             (today,),
         ).fetchall()
-        return [map_activity(r) for r in rows]
+        
+        intentions = [
+            TodayIntention(
+                id=r["id"], date=r["date"], 
+                activity_id=r["activity_id"], order_index=r["order_index"]
+            )
+            for r in t_rows
+        ]
+        
+        activities = []
+        for intention in intentions:
+            a_row = conn.execute(
+                "SELECT * FROM activities WHERE id = ?", (intention.activity_id,)
+            ).fetchone()
+            if a_row:
+                activities.append(map_activity(a_row))
+                
+        return activities
 
     def set_today_intentions(self, activity_ids: list[int]) -> None:
         conn = self._db.get_connection()

@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from core.result import Failure, Result, Success
+from core.result import Result
 from domain.entities.activity import Activity, ActivityType
 from domain.entities.checkin import CheckIn
 

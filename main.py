@@ -46,11 +46,11 @@ def _is_onboarding_complete() -> bool:
         from core.database.db_helper import DBHelper
 
         db = DBHelper.instance()
-        with db.get_connection() as conn:
-            row = conn.execute(
-                "SELECT value FROM settings WHERE key = ?",
-                ("onboarding_complete",),
-            ).fetchone()
+        conn = db.get_connection()
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key = ?",
+            ("onboarding_complete",),
+        ).fetchone()
         return row is not None and row["value"] == "1"
     except Exception as exc:  # noqa: BLE001
         logger.warning("Could not read onboarding flag: %s", exc)

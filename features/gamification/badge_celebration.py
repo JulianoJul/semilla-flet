@@ -51,11 +51,11 @@ class BadgeCelebration(ft.Container):
         )
         super().__init__(
             content=card,
-            bgcolor=ft.colors.with_opacity(0.7, "#000000"),
+            bgcolor=ft.Colors.with_opacity(0.7, "#000000"),
             alignment=ft.Alignment(0, 0),
             expand=True,
             visible=False,
-            animate_opacity=ft.animation.Animation(300, ft.AnimationCurve.EASE_IN_OUT),
+            animate_opacity=300,
             opacity=0.0,
         )
 

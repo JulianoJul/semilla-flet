@@ -41,6 +41,7 @@ class NeuButton(ft.Container):
             shadow=self._shadows(t) if not disabled else None,
             opacity=0.4 if disabled else 1.0,
             on_click=None if disabled else lambda e: on_click(e),
+            clip_behavior=ft.ClipBehavior.NONE,
         )
 
     @staticmethod
@@ -50,14 +51,14 @@ class NeuButton(ft.Container):
             ft.BoxShadow(
                 offset=ft.Offset(-o, -o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.colors.with_opacity(
+                color=ft.Colors.with_opacity(
                     t.shadow_light_opacity, t.color_shadow_light,
                 ),
             ),
             ft.BoxShadow(
                 offset=ft.Offset(o, o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.colors.with_opacity(
+                color=ft.Colors.with_opacity(
                     t.shadow_dark_opacity, t.color_shadow_dark,
                 ),
             ),

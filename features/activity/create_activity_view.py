@@ -56,40 +56,70 @@ class CreateActivityView(ft.BottomSheet):
             max_lines=3,
         )
         self._type_row = self._build_type_row()
+        self._column = ft.Column(
+            controls=self._build_controls(),
+            scroll=ft.ScrollMode.AUTO,
+            spacing=12,
+        )
         r = float(tokens.radius_large)
         super().__init__(
+            use_safe_area=True,
             content=ft.Container(
                 bgcolor=COLOR_BASE,
-                padding=24,
+                padding=ft.padding.only(left=24, right=24, top=24, bottom=0),
                 border_radius=ft.BorderRadius(r, r, 0, 0),
-                content=ft.Column(
-                    controls=[
-                        make_text(self._copy("new_activity_title"), TextStyles.heading2),
-                        ft.Container(height=8),
-                        self._type_row,
-                        ft.Container(height=8),
-                        neu_card(
-                            content=self._title_field, tokens=tokens,
-                            inset=True, padding=14,
-                        ),
-                        self._deadline_field,
-                        neu_card(
-                            content=self._intention_field, tokens=tokens,
-                            inset=True, padding=14,
-                        ),
-                        self._error,
-                        ft.Container(height=8),
-                        NeuButton(
-                            label=self._copy("confirm_habit"),
-                            on_click=self._handle_save,
-                            tokens=tokens,
-                        ),
-                    ],
-                    scroll=ft.ScrollMode.AUTO,
-                    spacing=12,
+                content=ft.SafeArea(
+                    content=self._column,
+                    bottom=True,
                 ),
             ),
         )
+
+    def _build_controls(self) -> list[ft.Control]:
+        controls: list[ft.Control] = [
+            make_text(self._copy("new_activity_title"), TextStyles.heading2),
+            ft.Container(height=4),
+            self._type_row,
+            ft.Container(height=4),
+            neu_card(
+                content=self._title_field, tokens=self._tokens,
+                inset=True, padding=14,
+            ),
+        ]
+        
+        if self._selected_type == "B":
+            self._deadline_field.visible = True
+            controls.append(
+                neu_card(
+                    content=self._deadline_field, tokens=self._tokens,
+                    inset=True, padding=14,
+                )
+            )
+        
+        controls.append(
+            neu_card(
+                content=self._intention_field, tokens=self._tokens,
+                inset=True, padding=14,
+            )
+        )
+
+        if self._error.value:
+            controls.append(self._error)
+
+        controls.append(ft.Container(height=8))
+        
+        controls.append(
+            ft.Container(
+                content=NeuButton(
+                    label=self._copy("confirm_habit"),
+                    on_click=self._handle_save,
+                    tokens=self._tokens,
+                ),
+                padding=ft.padding.only(left=6, right=6, top=12, bottom=12),
+                clip_behavior=ft.ClipBehavior.NONE,
+            )
+        )
+        return controls
 
     def _build_type_row(self) -> ft.Row:
         def make_chip(code: str, label: str) -> ft.Control:
@@ -114,14 +144,10 @@ class CreateActivityView(ft.BottomSheet):
 
     def _select_type(self, code: str) -> None:
         self._selected_type = code
-        self._deadline_field.visible = (code == "B")
-        self._type_row.controls = [
-            self._build_type_row().controls
-        ][0]  # rebuild chips
+        self._type_row.controls = self._build_type_row().controls
+        self._column.controls = self._build_controls()
         try:
-            self._type_row.controls = self._build_type_row().controls
-            self._type_row.update()
-            self._deadline_field.update()
+            self._column.update()
         except Exception:
             pass
 
@@ -129,7 +155,8 @@ class CreateActivityView(ft.BottomSheet):
         title = (self._title_field.value or "").strip()
         if not title:
             self._error.value = "El nombre no puede estar vacío"
-            try: self._error.update()
+            self._column.controls = self._build_controls()
+            try: self._column.update()
             except Exception: pass
             return
         deadline = (self._deadline_field.value or "").strip() or None
@@ -143,13 +170,15 @@ class CreateActivityView(ft.BottomSheet):
                 implementation_intention=intention,
             )
             if res.is_failure():
-                self._error.value = res.error
-                try: self._error.update()
+                self._error.value = res.error or "Error"
+                self._column.controls = self._build_controls()
+                try: self._column.update()
                 except Exception: pass
                 return
         except Exception as exc:
             self._error.value = str(exc)
-            try: self._error.update()
+            self._column.controls = self._build_controls()
+            try: self._column.update()
             except Exception: pass
             return
         self.open = False

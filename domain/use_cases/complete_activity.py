@@ -13,6 +13,7 @@ from domain.entities.results import CompletionResult
 from domain.repositories.activity_repository import ActivityRepository
 from domain.repositories.gamification_repository import GamificationRepository
 from domain.use_cases.manage_streak import ManageStreakUseCase
+from core.notifications.notification_service import NotificationService
 
 
 # --- USE CASE ---
@@ -22,10 +23,12 @@ class CompleteActivityUseCase:
         activity_repo: ActivityRepository,
         gamification_repo: GamificationRepository,
         manage_streak: ManageStreakUseCase,
+        notification_service: NotificationService,
     ) -> None:
         self._activity_repo = activity_repo
         self._gamification_repo = gamification_repo
         self._manage_streak = manage_streak
+        self._notification_service = notification_service
 
     def execute(
         self,
@@ -58,6 +61,9 @@ class CompleteActivityUseCase:
         # --- CHECK CHEST ---
         chest_res = self._gamification_repo.should_show_chest()
         show_chest = isinstance(chest_res, Success) and chest_res.value
+
+        # --- NOTIFICATIONS ---
+        self._notification_service.send_completion_feedback()
 
         return Success(CompletionResult(
             checkin=checkin_res.value,

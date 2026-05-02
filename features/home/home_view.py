@@ -80,9 +80,10 @@ class HomeView(ft.Column):
         from features.home.widgets.plant_garden import PlantGarden
         from features.home.widgets.today_section import TodaySection
 
+        self._garden = PlantGarden(self._tokens)
         controls: list[ft.Control] = [
             make_text(self._copy("home_title"), TextStyles.heading1),
-            PlantGarden(self._tokens),
+            self._garden,
         ]
         if fresh:
             controls.append(FreshStartBanner(self._tokens, self._open_ritual))
@@ -104,12 +105,42 @@ class HomeView(ft.Column):
     def _handle_complete(self, activity: Activity) -> None:
         try:
             from core.container import AppContainer
-            AppContainer.instance().complete_activity_uc.execute(
+            res = AppContainer.instance().complete_activity_uc.execute(
                 activity_id=activity.id or 0,
             )
+            if res.is_success() and res.value:
+                result = res.value
+                if result.show_chest:
+                    self._show_chest()
+                if result.new_badge is not None:
+                    self._show_badge(result.new_badge)
+                if hasattr(self, "_garden"):
+                    self._garden.celebrate()
             threading.Thread(target=self._load_data, daemon=True).start()
         except Exception:
             pass
+
+    def _show_chest(self) -> None:
+        from features.gamification.chest_widget import ChestWidget
+        dialog = ChestWidget(
+            tokens=self._tokens,
+            on_open=lambda: threading.Thread(
+                target=self._load_data, daemon=True
+            ).start(),
+            page=self._page,
+        )
+        self._page.overlay.append(dialog)
+        dialog.open = True
+        try: self._page.update()
+        except Exception: pass
+
+    def _show_badge(self, badge) -> None:
+        from features.gamification.badge_celebration import BadgeCelebration
+        overlay = BadgeCelebration(tokens=self._tokens, page=self._page)
+        self._page.overlay.append(overlay)
+        try: self._page.update()
+        except Exception: pass
+        overlay.show(badge)
 
     def _handle_habit_tap(self, activity: Activity) -> None:
         pass  # future: open detail sheet

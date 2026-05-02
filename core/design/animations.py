@@ -19,7 +19,7 @@ def fade_in(content: ft.Control, duration: int = 300) -> ft.AnimatedSwitcher:
 def scale_pop(control: ft.Control) -> ft.Container:
     return ft.Container(
         content=control,
-        animate_scale=ft.animation.Animation(
+        animate_scale=ft.Animation(  # type: ignore
             duration=250,
             curve=ft.AnimationCurve.BOUNCE_OUT,
         ),
@@ -27,10 +27,10 @@ def scale_pop(control: ft.Control) -> ft.Container:
     )
 
 
-def slide_up(content: ft.Control, duration: int = 350) -> ft.AnimatedContainer:
-    return ft.AnimatedContainer(
+def slide_up(content: ft.Control, duration: int = 350) -> ft.Container:
+    return ft.Container(
         content=content,
-        animate=ft.animation.Animation(
+        animate=ft.Animation(  # type: ignore
             duration=duration,
             curve=ft.AnimationCurve.EASE_OUT,
         ),

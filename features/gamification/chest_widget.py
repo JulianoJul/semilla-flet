@@ -27,7 +27,7 @@ class ChestWidget(ft.AlertDialog):
         self._reward_text = ft.Text("", size=15, color=tokens.color_text_main)
         self._chest_icon = ft.Container(
             content=ft.Text("🪴", size=64),
-            animate_scale=ft.animation.Animation(400, ft.AnimationCurve.BOUNCE_OUT),
+            animate_scale=ft.Animation(800, ft.AnimationCurve.ELASTIC_OUT),  # type: ignore
             scale=0.8,
             alignment=ft.Alignment(0, 0),
         )
