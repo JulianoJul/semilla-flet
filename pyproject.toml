@@ -17,6 +17,7 @@ dependencies = [
 strict = true
 python_version = "3.11"
 ignore_missing_imports = true
+mypy_path = "."
 
 [tool.ruff]
 line-length = 88
@@ -28,6 +29,10 @@ select = ["E", "F", "W", "I", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+
+[tool.pyrefly]
+search_path = ["."]
+project_root = "."
 
 [tool.flet]
 org = "app.semilla"

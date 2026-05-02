@@ -1,6 +1,4 @@
-"""
-core/result.py — Result[T] sealed type for error handling.
-"""
+# core/result.py — Result[T] sealed type for error handling.
 
 # --- IMPORTS ---
 from __future__ import annotations
@@ -17,6 +15,7 @@ U = TypeVar("U")
 @dataclass(frozen=True)
 class Success(Generic[T]):
     value: T
+    error: Optional[str] = None
 
     def is_success(self) -> bool:
         return True
@@ -47,6 +46,7 @@ class Success(Generic[T]):
 @dataclass(frozen=True)
 class Failure(Generic[T]):
     error: str
+    value: Optional[T] = None  # Always None; present so Result[T] union has .value
 
     def is_success(self) -> bool:
         return False

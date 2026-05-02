@@ -1,69 +1,99 @@
-# SemillaFlet app
+# README.md — Semilla: No gestionas tareas. Cultivas tu día.
 
-## Run the app
+# 🌱 Semilla
 
-### uv
+> **No gestionas tareas. Cultivas tu día.**
 
-Run as a desktop app:
+App offline-first de cultivo de hábitos construida con Python + Flet. Diseño Neumórfico accesible (WCAG AA). Sin backend, sin autenticación, sin tracking externo.
 
-```bash
-uv run flet run
+---
+
+## Arquitectura
+
+```
+semilla-flet/
+├── core/
+│   ├── database/         # DBHelper (SQLite WAL), migrations, seed_data
+│   ├── design/           # Tokens, NeuCard, NeuButton, Typography, Animations
+│   ├── notifications/    # NotificationService (plyer, graceful degradation)
+│   └── container.py      # AppContainer — DI singleton
+├── domain/
+│   ├── entities/         # Activity, CheckIn, Streak, BadgeEntity, Results
+│   ├── repositories/     # Abstract interfaces
+│   └── use_cases/        # CreateActivity, CompleteActivity, ManageStreak, …
+├── data/
+│   ├── datasources/      # SQL queries + mappers (≤120L cada archivo)
+│   └── repositories/     # Implementaciones concretas
+├── features/
+│   ├── onboarding/       # 3 pasos: arquetipo → primera semilla → pacto
+│   ├── home/             # HomeView + 5 widgets seccionales
+│   ├── activity/         # CreateActivityView (BottomSheet)
+│   └── gamification/     # StreakIndicator, ChestWidget, BadgeCelebration
+├── tests/
+│   └── unit/             # pytest — streak, create_activity, design_system
+└── main.py               # Entry point Flet
 ```
 
-Run as a web app:
+## Capas y reglas
 
-```bash
-uv run flet run --web
+| Capa | Puede importar | No puede importar |
+|------|---------------|-------------------|
+| `domain/` | nada externo | `data/`, `features/`, `flet` |
+| `data/` | `domain/`, `core/` | `features/` |
+| `features/` | `domain/`, `core/`, `data/` vía container | otros features |
+| `core/design/` | `flet` | `domain/`, `data/`, `features/` |
+
+## Tipos de actividad
+
+| Código | Nombre UI | Sección home |
+|--------|-----------|--------------|
+| `A` | Hábito | 🔁 Mis hábitos (chips) + Hoy cultivo |
+| `B` | Horizonte | 📅 Horizontes (deadlines) |
+| `C` | Semilla | 💤 Semillas en espera (backlog) |
+
+## Gamificación
+
+- **Racha** (`streaks`): consecutive daily completions. Grace period de 24h. Escudo consume `shields_available`.
+- **Badges**: se desbloquean en `check_and_unlock()` según `condition_type` (`streak`, `total_completions`, `shield_used`).
+- **Cofre**: drop probabilístico (40%) con pity timer de 3 días.
+- **Planta**: escala visual 0→5 según `total_completions`.
+
+## Design System Neumórfico
+
+Tokens almacenados en tabla `design_tokens` (override desde DB):
+
+```python
+color_base     = "#E8EDEA"   # fondo único de toda la app
+shadow_dark    = "#B8BDB9"   # sombra inferior-derecha
+shadow_light   = "#FFFFFF"   # sombra superior-izquierda
+color_primary  = "#2E4A3E"   # texto principal, botón primario
 ```
 
-For more details on running the app, refer to the [Getting Started Guide](https://flet.dev/docs/).
+Contraste WCAG AA verificado automáticamente vía `check_contrast()`.
 
-## Build the app
-
-### Android
+## Correr la app
 
 ```bash
-flet build apk -v
+# Instalar dependencias
+uv sync  # o: pip install -r requirements.txt
+
+# Ejecutar
+python main.py
+
+# Tests
+pytest tests/unit/ -v
 ```
 
-For more details on building and signing `.apk` or `.aab`, refer to the [Android Packaging Guide](https://flet.dev/docs/publish/android/).
+## Archivos de assets esperados
 
-### iOS
-
-```bash
-flet build ipa -v
+```
+assets/
+├── images/plant_stage_0.png  ... plant_stage_5.png
+└── sounds/complete.wav
 ```
 
-For more details on building and signing `.ipa`, refer to the [iOS Packaging Guide](https://flet.dev/docs/publish/ios/).
+Si faltan → `core/asset_helper.py` devuelve placeholders (emoji/silencio).
 
-### macOS
+---
 
-```bash
-flet build macos -v
-```
-
-For more details on building macOS package, refer to the [macOS Packaging Guide](https://flet.dev/docs/publish/macos/).
-
-### Linux
-
-```bash
-flet build linux -v
-```
-
-For more details on building Linux package, refer to the [Linux Packaging Guide](https://flet.dev/docs/publish/linux/).
-
-### Windows
-
-```bash
-flet build windows -v
-```
-
-For more details on building Windows package, refer to the [Windows Packaging Guide](https://flet.dev/docs/publish/windows/).
-
-### Web
-
-```bash
-flet build web -v
-```
-
-For more details on building Web app, refer to the [Web Packaging Guide](https://flet.dev/docs/publish/web/).
+*Semilla no te juzga. Te acompaña.* 🌱
