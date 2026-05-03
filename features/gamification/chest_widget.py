@@ -8,7 +8,7 @@ from typing import Any, Callable, Optional
 import flet as ft
 
 from core.design.neu_button import NeuButton
-from core.design.neu_card import neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 

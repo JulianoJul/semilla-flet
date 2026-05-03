@@ -7,7 +7,7 @@ from typing import Optional
 
 import flet as ft
 
-from core.design.neu_card import neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 from domain.entities.badge_entity import BadgeEntity
@@ -29,7 +29,7 @@ class BadgeCelebration(ft.Container):
         self._emoji = ft.Text("🏅", size=64)
         self._name = make_text("", TextStyles.heading2)
         self._description = make_text("", TextStyles.body)
-        card = neu_card(
+        card = NeuCard(
             content=ft.Column(
                 controls=[
                     ft.Container(

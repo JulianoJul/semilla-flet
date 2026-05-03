@@ -79,6 +79,87 @@ def neu_card(
     )
 
 
+def neu_card_variant(
+    content: ft.Control,
+    tokens: Optional[DesignTokens] = None,
+    radius_key: str = "standard",
+    padding: int = 16,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    variant: str = "default",  # "default" | "pressed" | "well"
+) -> ft.Container:
+    """
+    Factory with visual variants:
+      - "default": standard outer neumorphic shadows
+      - "pressed": reduced shadows (simulates physical depression, scale 0.98)
+      - "well":    very subtle outer shadows (for text field wrappers)
+    """
+    t = tokens or DesignTokens.defaults()
+    radius_map = {
+        "small": t.radius_small,
+        "standard": t.radius_standard,
+        "large": t.radius_large,
+        "full": 999,
+    }
+    r = float(radius_map.get(radius_key, t.radius_standard))
+    o = t.shadow_offset
+
+    if variant == "pressed":
+        shadows: list[ft.BoxShadow] = [
+            ft.BoxShadow(
+                offset=ft.Offset(-2, -2),
+                blur_radius=4.0,
+                color=_with_opacity(t.shadow_light_opacity * 0.6, t.color_shadow_light),
+            ),
+            ft.BoxShadow(
+                offset=ft.Offset(2, 2),
+                blur_radius=4.0,
+                color=_with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
+            ),
+        ]
+        scale: float = 0.98
+    elif variant == "well":
+        shadows = [
+            ft.BoxShadow(
+                offset=ft.Offset(-1, -1),
+                blur_radius=3.0,
+                color=_with_opacity(0.2, t.color_shadow_dark),
+            ),
+            ft.BoxShadow(
+                offset=ft.Offset(1, 1),
+                blur_radius=3.0,
+                color=_with_opacity(0.5, t.color_shadow_light),
+            ),
+        ]
+        scale = 1.0
+    else:  # "default"
+        shadows = [
+            ft.BoxShadow(
+                offset=ft.Offset(-o, -o),
+                blur_radius=float(t.shadow_blur),
+                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+            ),
+            ft.BoxShadow(
+                offset=ft.Offset(o, o),
+                blur_radius=float(t.shadow_blur),
+                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+            ),
+        ]
+        scale = 1.0
+
+    return ft.Container(
+        content=content,
+        bgcolor=t.color_base,
+        border_radius=ft.BorderRadius(r, r, r, r),
+        padding=padding,
+        width=width,
+        height=height,
+        shadow=shadows,
+        scale=scale,
+        clip_behavior=ft.ClipBehavior.NONE,
+    )
+
+
 --- FILE: ./core/design/tokens.py ---
 # core/design/tokens.py — DesignTokens loaded from design_tokens table.
 
@@ -113,6 +194,9 @@ class DesignTokens:
     color_text_main: str = COLOR_TEXT_MAIN
     color_text_sub: str = COLOR_TEXT_SUB
     color_accent_alert: str = COLOR_ACCENT_ALERT
+    shadow_ambient_opacity: float = 0.3
+    gradient_subtle_start: str = "#F0F5F2"
+    gradient_subtle_end: str = "#DFE4E1"
 
     @staticmethod
     def load(db: object) -> DesignTokens:  # type: ignore[override]
@@ -138,6 +222,9 @@ class DesignTokens:
                 color_text_main=f"#{data.get('color_text_main', '1A2E25')}",
                 color_text_sub=f"#{data.get('color_text_sub', '4A6358')}",
                 color_accent_alert=f"#{data.get('color_accent_alert', 'C17A3A')}",
+                shadow_ambient_opacity=float(data.get("shadow_ambient_opacity", 0.3)),
+                gradient_subtle_start=f"#{data.get('gradient_subtle_start', 'F0F5F2')}",
+                gradient_subtle_end=f"#{data.get('gradient_subtle_end', 'DFE4E1')}",
             )
         except Exception as e:
             import logging
@@ -222,6 +309,101 @@ class NeuButton(ft.Container):
                 color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
             ),
         ]
+
+
+--- FILE: ./core/design/neu_checkbox.py ---
+# core/design/neu_checkbox.py — Neumorphic custom checkbox component.
+
+# --- IMPORTS ---
+from __future__ import annotations
+
+from typing import Callable, Optional
+
+import flet as ft
+
+from core.design.neu_card import _with_opacity
+from core.design.tokens import DesignTokens
+
+
+class NeuCheckbox(ft.Container):
+    """
+    Neumorphic checkbox:
+      - Unchecked: inset shadows (etched/well look)
+      - Checked:   primary background + outer shadows + check icon
+    """
+
+    def __init__(
+        self,
+        checked: bool = False,
+        on_change: Optional[Callable[[bool], None]] = None,
+        tokens: Optional[DesignTokens] = None,
+        size: float = 28.0,
+    ) -> None:
+        self._checked = checked
+        self._on_change = on_change
+        self._tokens = tokens or DesignTokens.defaults()
+
+        super().__init__(
+            width=size,
+            height=size,
+            border_radius=ft.BorderRadius(6, 6, 6, 6),
+            on_click=self._toggle,
+            ink=True,
+            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+        )
+        self._size = size
+        self._apply_state()
+
+    def _apply_state(self) -> None:
+        t = self._tokens
+        if self._checked:
+            self.bgcolor = t.color_primary
+            self.shadow = [
+                ft.BoxShadow(
+                    offset=ft.Offset(-2, -2),
+                    blur_radius=4.0,
+                    color=_with_opacity(t.shadow_light_opacity * 0.7, t.color_shadow_light),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(2, 2),
+                    blur_radius=4.0,
+                    color=_with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
+                ),
+            ]
+            self.content = ft.Icon(
+                ft.Icons.CHECK,
+                size=self._size * 0.6,
+                color="#FFFFFF",
+            )
+        else:
+            self.bgcolor = t.color_base
+            self.shadow = [
+                ft.BoxShadow(
+                    offset=ft.Offset(2, 2),
+                    blur_radius=4.0,
+                    color=_with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(-2, -2),
+                    blur_radius=4.0,
+                    color=_with_opacity(t.shadow_light_opacity * 0.7, t.color_shadow_light),
+                ),
+            ]
+            self.content = None
+
+    def _toggle(self, e: object) -> None:
+        self._checked = not self._checked
+        self._apply_state()
+        try:
+            self.update()
+        except Exception:
+            pass
+        if self._on_change:
+            self._on_change(self._checked)
+
+    @property
+    def value(self) -> bool:
+        return self._checked
 
 
 --- FILE: ./core/design/colors.py ---
@@ -316,6 +498,84 @@ def pulse_scale(container: ft.Container, target: float = 1.1) -> None:
 def reset_scale(container: ft.Container) -> None:
     container.scale = 1.0
     container.update()
+
+
+--- FILE: ./core/design/progress_ring.py ---
+# core/design/progress_ring.py — Neumorphic progress ring component.
+
+# --- IMPORTS ---
+from __future__ import annotations
+
+from typing import Optional
+
+import flet as ft
+
+from core.design.tokens import DesignTokens
+
+
+def _with_opacity(opacity: float, color: str) -> str:
+    c = color.lstrip("#")
+    if len(c) == 3:
+        c = "".join(ch * 2 for ch in c)
+    aa = format(round(opacity * 255), "02X")
+    return f"#{aa}{c.upper()}"
+
+
+class NeuProgressRing(ft.Stack):
+    """
+    Neumorphic progress ring.
+
+    Renders a circular ProgressRing on top of a neumorphic well (inset shadow)
+    track container. Works as a drop-in replacement for ft.ProgressRing when
+    you need the full neumorphic aesthetic.
+    """
+
+    def __init__(
+        self,
+        value: float,
+        size: float = 18.0,
+        stroke_width: float = 2.0,
+        tokens: Optional[DesignTokens] = None,
+    ) -> None:
+        t = tokens or DesignTokens.defaults()
+        # Clamp value to [0.0, 1.0]
+        clamped = max(0.0, min(1.0, value))
+
+        # Inset shadow track (simulates a well/groove the ring sits in)
+        track = ft.Container(
+            width=size,
+            height=size,
+            border_radius=ft.BorderRadius(size / 2, size / 2, size / 2, size / 2),
+            bgcolor=t.color_base,
+            shadow=[
+                ft.BoxShadow(
+                    offset=ft.Offset(1, 1),
+                    blur_radius=3.0,
+                    color=_with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(-1, -1),
+                    blur_radius=3.0,
+                    color=_with_opacity(t.shadow_light_opacity * 0.6, t.color_shadow_light),
+                ),
+            ],
+        )
+
+        # Actual progress ring on top
+        ring = ft.ProgressRing(
+            value=clamped,
+            width=size,
+            height=size,
+            stroke_width=stroke_width,
+            color=t.color_secondary,
+            bgcolor="transparent",
+        )
+
+        super().__init__(
+            controls=[track, ring],
+            width=size,
+            height=size,
+        )
 
 
 --- FILE: ./core/design/__init__.py ---
@@ -754,6 +1014,9 @@ def _seed_tokens(c: sqlite3.Connection) -> None:
         ("color_primary", "2E4A3E"), ("color_secondary", "7FAF8C"),
         ("color_text_main", "1A2E25"), ("color_text_sub", "4A6358"),
         ("color_accent_alert", "C17A3A"),
+        ("shadow_ambient_opacity", "0.3"),
+        ("gradient_subtle_start", "F0F5F2"),
+        ("gradient_subtle_end", "DFE4E1"),
     ]
     c.executemany("INSERT OR IGNORE INTO design_tokens VALUES (?, ?)", rows)
 
@@ -2477,8 +2740,7 @@ from __future__ import annotations
 from typing import Any, Callable
 import flet as ft
 from core.design.colors import COLOR_BASE
-from core.design.neu_button import NeuButton
-from core.design.neu_card import neu_card
+from core.design.neu_card import _with_opacity, neu_card, neu_card_variant
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
@@ -2488,6 +2750,27 @@ _TYPES = [
     ("C", "Semilla"),
     ("D", "Hoy"),
 ]
+
+
+def _handle_bar(tokens: DesignTokens) -> ft.Control:
+    """Drag handle bar — centred pill at the top of the sheet."""
+    return ft.Container(
+        content=ft.Container(
+            width=48,
+            height=6,
+            bgcolor=tokens.color_shadow_dark,
+            border_radius=ft.BorderRadius(3, 3, 3, 3),
+            opacity=0.5,
+        ),
+        alignment=ft.Alignment(0, 0),
+        padding=ft.Padding(left=0, right=0, top=8, bottom=12),
+    )
+
+
+def _ambient_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
+    """Soft ambient shadow for primary action buttons (not neumorphic)."""
+    colour = _with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
+    return [ft.BoxShadow(offset=ft.Offset(0, 4), blur_radius=10.0, color=colour)]
 
 
 class CreateActivityView(ft.BottomSheet):
@@ -2520,7 +2803,7 @@ class CreateActivityView(ft.BottomSheet):
             expand=True,
         )
         self._intention_field = ft.TextField(
-            hint_text=self._copy("implementation_hint") or "Intención de implementación...",
+            hint_text=self._copy("implementation_hint") or "Cuándo y dónde lo harás...",
             hint_style=ft.TextStyle(color=tokens.color_text_sub),
             color=tokens.color_text_main,
             border=ft.InputBorder.NONE,
@@ -2531,7 +2814,7 @@ class CreateActivityView(ft.BottomSheet):
             expand=True,
         )
         self._coping_field = ft.TextField(
-            hint_text=self._copy("coping_hint") or "Si me resulta difícil, puedo...",
+            hint_text=self._copy("coping_hint") or "Si surge un obstáculo, entonces...",
             hint_style=ft.TextStyle(color=tokens.color_text_sub),
             color=tokens.color_text_main,
             border=ft.InputBorder.NONE,
@@ -2543,8 +2826,8 @@ class CreateActivityView(ft.BottomSheet):
         )
 
         # Deadline card — visible solo para tipo B
-        self._deadline_card = neu_card(
-            content=ft.Column(
+        self._deadline_card = self._field_with_icon(
+            field=ft.Column(
                 controls=[
                     ft.Text(
                         "Fecha límite",
@@ -2556,9 +2839,7 @@ class CreateActivityView(ft.BottomSheet):
                 ],
                 spacing=4,
             ),
-            tokens=self._tokens,
-            inset=True,
-            padding=14,
+            icon=ft.Icons.CALENDAR_TODAY,
         )
         self._deadline_wrapper = ft.AnimatedSwitcher(
             content=ft.Container(key="empty_deadline"),
@@ -2573,11 +2854,10 @@ class CreateActivityView(ft.BottomSheet):
             scroll=ft.ScrollMode.AUTO,
         )
 
-        # Confirm button — recreated on type change
-        self._confirm_btn = NeuButton(
+        # Primary confirm button (ambient shadow, not neumorphic per DESIGN.md)
+        self._confirm_btn = self._primary_button(
             label=self._confirm_label(),
             on_click=self._handle_save,
-            tokens=self._tokens,
         )
         self._confirm_wrapper = ft.Container(
             content=self._confirm_btn,
@@ -2587,6 +2867,7 @@ class CreateActivityView(ft.BottomSheet):
         # Main scrollable column
         self._column = ft.Column(
             controls=[
+                _handle_bar(tokens),
                 # Header
                 ft.Row(
                     controls=[
@@ -2595,31 +2876,53 @@ class CreateActivityView(ft.BottomSheet):
                             TextStyles.heading2,
                         ),
                         ft.Container(expand=True),
-                        ft.IconButton(
-                            icon=ft.Icons.CLOSE,
-                            icon_color=tokens.color_text_sub,
-                            on_click=self._handle_close,
-                            icon_size=20,
+                        # Close button — circular neumorphic
+                        ft.GestureDetector(
+                            content=ft.Container(
+                                content=ft.Icon(
+                                    ft.Icons.CLOSE,
+                                    color=tokens.color_text_sub,
+                                    size=18,
+                                ),
+                                width=40,
+                                height=40,
+                                border_radius=ft.BorderRadius(20, 20, 20, 20),
+                                bgcolor=tokens.color_base,
+                                shadow=[
+                                    ft.BoxShadow(
+                                        offset=ft.Offset(-2, -2),
+                                        blur_radius=5.0,
+                                        color=_with_opacity(tokens.shadow_light_opacity, tokens.color_shadow_light),
+                                    ),
+                                    ft.BoxShadow(
+                                        offset=ft.Offset(2, 2),
+                                        blur_radius=5.0,
+                                        color=_with_opacity(tokens.shadow_dark_opacity, tokens.color_shadow_dark),
+                                    ),
+                                ],
+                                alignment=ft.Alignment(0, 0),
+                            ),
+                            on_tap=self._handle_close,
                         ),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 ),
                 ft.Container(height=4),
-                # Type selector
+                # Type selector label
                 ft.Text(
-                    "Tipo de semilla",
+                    "Tipo de actividad",
                     size=12,
                     color=tokens.color_text_sub,
                     weight=ft.FontWeight.W_500,
                 ),
                 self._type_chips_row,
                 ft.Container(height=4),
-                # Title field
-                neu_card(
-                    content=ft.Column(
+                # Title field — well variant with icon
+                self._field_with_icon(
+                    field=ft.Column(
                         controls=[
                             ft.Text(
-                                "Nombre",
+                                "Nombre *",
                                 size=12,
                                 color=tokens.color_text_sub,
                                 weight=ft.FontWeight.W_500,
@@ -2628,18 +2931,16 @@ class CreateActivityView(ft.BottomSheet):
                         ],
                         spacing=4,
                     ),
-                    tokens=self._tokens,
-                    inset=True,
-                    padding=14,
+                    icon=ft.Icons.EDIT_OUTLINED,
                 ),
                 # Deadline (animated)
                 self._deadline_wrapper,
                 # Intention field
-                neu_card(
-                    content=ft.Column(
+                self._field_with_icon(
+                    field=ft.Column(
                         controls=[
                             ft.Text(
-                                "Intención",
+                                "Intención de implementación",
                                 size=12,
                                 color=tokens.color_text_sub,
                                 weight=ft.FontWeight.W_500,
@@ -2648,13 +2949,12 @@ class CreateActivityView(ft.BottomSheet):
                         ],
                         spacing=4,
                     ),
-                    tokens=self._tokens,
-                    inset=True,
-                    padding=14,
+                    icon=ft.Icons.LIGHTBULB_OUTLINE,
+                    multiline=True,
                 ),
                 # Coping field
-                neu_card(
-                    content=ft.Column(
+                self._field_with_icon(
+                    field=ft.Column(
                         controls=[
                             ft.Text(
                                 "Plan de afrontamiento",
@@ -2666,13 +2966,22 @@ class CreateActivityView(ft.BottomSheet):
                         ],
                         spacing=4,
                     ),
-                    tokens=self._tokens,
-                    inset=True,
-                    padding=14,
+                    icon=ft.Icons.SHIELD_OUTLINED,
+                    multiline=True,
                 ),
                 self._error,
                 ft.Container(height=8),
-                self._confirm_wrapper,
+                # Sticky footer with gradient fade
+                ft.Container(
+                    content=self._confirm_wrapper,
+                    gradient=ft.LinearGradient(
+                        begin=ft.Alignment(0, -1),
+                        end=ft.Alignment(0, 1),
+                        colors=["#00E8EDEA", "#E8EDEA", "#E8EDEA"],
+                    ),
+                    padding=ft.Padding(left=0, right=0, top=16, bottom=0),
+                    clip_behavior=ft.ClipBehavior.NONE,
+                ),
                 ft.Container(height=16),
             ],
             scroll=ft.ScrollMode.AUTO,
@@ -2680,14 +2989,13 @@ class CreateActivityView(ft.BottomSheet):
         )
 
         r = float(tokens.radius_large)
-        # Asegurar que h sea un número (800 por defecto) para evitar TypeError
         h = getattr(self._page, "height", 800) or 800
         super().__init__(
             use_safe_area=True,
             content=ft.Container(
                 height=max(500, h * 0.85),
                 bgcolor=COLOR_BASE,
-                padding=ft.Padding(left=24, right=24, top=20, bottom=0),
+                padding=ft.Padding(left=24, right=24, top=0, bottom=0),
                 border_radius=ft.BorderRadius(r, r, 0, 0),
                 content=ft.SafeArea(
                     content=self._column,
@@ -2696,35 +3004,100 @@ class CreateActivityView(ft.BottomSheet):
             ),
         )
 
+    # --- FIELD WRAPPER ---
+    def _field_with_icon(
+        self,
+        field: ft.Control,
+        icon: str,
+        multiline: bool = False,
+    ) -> ft.Container:
+        t = self._tokens
+        return neu_card_variant(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(icon, color=t.color_text_sub, size=18),
+                    field if not isinstance(field, ft.Column) else ft.Container(content=field, expand=True),
+                ],
+                spacing=10,
+                vertical_alignment=ft.CrossAxisAlignment.START if multiline else ft.CrossAxisAlignment.CENTER,
+                expand=True,
+            ),
+            tokens=t,
+            variant="well",
+            padding=14,
+        )
+
+    # --- PRIMARY BUTTON ---
+    def _primary_button(self, label: str, on_click: Callable[..., Any]) -> ft.Container:
+        t = self._tokens
+        r = float(t.radius_standard)
+        return ft.Container(
+            content=ft.Text(
+                label,
+                color="#FFFFFF",
+                size=16,
+                weight=ft.FontWeight.W_600,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            bgcolor=t.color_primary,
+            border_radius=ft.BorderRadius(r, r, r, r),
+            padding=ft.Padding(left=24, right=24, top=14, bottom=14),
+            shadow=_ambient_shadow(t),
+            on_click=on_click,
+            ink=True,
+            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            width=float("inf"),  # type: ignore
+            expand=True,
+        )
+
     # --- CHIPS ---
     def _build_chips(self) -> list[ft.Control]:
         chips: list[ft.Control] = []
         for code, label in _TYPES:
             selected = code == self._selected_type
-            bg = self._tokens.color_primary if selected else self._tokens.color_base
-            fg = self._tokens.color_shadow_light if selected else self._tokens.color_text_main
-            r = float(self._tokens.radius_small)
-            chip = ft.GestureDetector(
-                content=ft.Container(
+            r_full = 999.0
+            if selected:
+                chip = ft.Container(
                     content=ft.Text(
                         label,
-                        color=fg,
+                        color="#FFFFFF",
                         size=13,
                         weight=ft.FontWeight.W_500,
                     ),
-                    bgcolor=bg,
-                    border_radius=ft.BorderRadius(r, r, r, r),
-                    padding=ft.Padding(left=14, right=14, top=8, bottom=8),
+                    bgcolor=self._tokens.color_primary,
+                    border_radius=ft.BorderRadius(r_full, r_full, r_full, r_full),
+                    padding=ft.Padding(left=16, right=16, top=8, bottom=8),
                     shadow=[
                         ft.BoxShadow(
+                            offset=ft.Offset(-2, -2),
+                            blur_radius=4.0,
+                            color=_with_opacity(self._tokens.shadow_light_opacity * 0.5, self._tokens.color_shadow_light),
+                        ),
+                        ft.BoxShadow(
                             offset=ft.Offset(2, 2),
-                            blur_radius=4,
-                            color="#33B8BDB9",
-                        )
-                    ] if selected else None,
-                ),
-                on_tap=lambda e, c=code: self._select_type(c),
-            )
+                            blur_radius=4.0,
+                            color=_with_opacity(self._tokens.shadow_dark_opacity * 0.4, self._tokens.color_shadow_dark),
+                        ),
+                    ],
+                    on_click=lambda e, c=code: self._select_type(c),
+                    ink=True,
+                )
+            else:
+                chip = ft.GestureDetector(
+                    content=neu_card_variant(
+                        content=ft.Text(
+                            label,
+                            color=self._tokens.color_text_main,
+                            size=13,
+                            weight=ft.FontWeight.W_400,
+                        ),
+                        tokens=self._tokens,
+                        radius_key="full",
+                        variant="default",
+                        padding=ft.Padding(left=16, right=16, top=8, bottom=8),  # type: ignore
+                    ),
+                    on_tap=lambda e, c=code: self._select_type(c),
+                )
             chips.append(chip)
         return chips
 
@@ -2735,12 +3108,10 @@ class CreateActivityView(ft.BottomSheet):
             self._deadline_wrapper.content = self._deadline_card
         else:
             self._deadline_wrapper.content = ft.Container(key="empty_deadline")
-        self._confirm_btn = NeuButton(
+        self._confirm_wrapper.content = self._primary_button(
             label=self._confirm_label(),
             on_click=self._handle_save,
-            tokens=self._tokens,
         )
-        self._confirm_wrapper.content = self._confirm_btn
         try:
             self._column.update()
         except Exception:
@@ -2839,19 +3210,37 @@ from typing import Callable, Any
 import flet as ft
 
 from core.design.colors import COLOR_BASE
-from core.design.neu_button import NeuButton
-from core.design.neu_card import neu_card
+from core.design.neu_card import _with_opacity, neu_card
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 from domain.entities.activity import Activity
 
 
+def _handle_bar(tokens: DesignTokens) -> ft.Control:
+    return ft.Container(
+        content=ft.Container(
+            width=48,
+            height=6,
+            bgcolor=tokens.color_shadow_dark,
+            border_radius=ft.BorderRadius(3, 3, 3, 3),
+            opacity=0.5,
+        ),
+        alignment=ft.Alignment(0, 0),
+        padding=ft.Padding(left=0, right=0, top=8, bottom=12),
+    )
+
+
+def _ambient_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
+    colour = _with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
+    return [ft.BoxShadow(offset=ft.Offset(0, 4), blur_radius=10.0, color=colour)]
+
+
+_DAYS = ["L", "M", "M", "J", "V", "S", "D"]
+
+
 class ActivityDetailView(ft.BottomSheet):
     """
     Bottom sheet con el detalle completo de un hábito/actividad.
-    Muestra: título, estadísticas de racha, historial de check-ins,
-    intención de implementación, plan de afrontamiento, y botones
-    de acción (completar hoy / archivar).
     """
 
     def __init__(
@@ -2876,34 +3265,91 @@ class ActivityDetailView(ft.BottomSheet):
         streak = self._load_streak()
         checkins = self._load_checkins()
 
+        # ── HANDLE ──────────────────────────────────────────────
+        handle = _handle_bar(t)
+
         # ── HEADER ──────────────────────────────────────────────
         header = ft.Row(
             controls=[
+                ft.Container(width=40),  # Spacer
                 ft.Column(
                     controls=[
                         ft.Text(
                             activity.title,
-                            size=22,
+                            size=20,
                             weight=ft.FontWeight.BOLD,
                             color=t.color_text_main,
+                            text_align=ft.TextAlign.CENTER,
                         ),
                         ft.Text(
                             self._type_label(activity.type.value),
-                            size=13,
+                            size=12,
                             color=t.color_text_sub,
+                            text_align=ft.TextAlign.CENTER,
                         ),
                     ],
                     spacing=2,
                     expand=True,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                ft.IconButton(
-                    icon=ft.Icons.CLOSE,
-                    icon_color=t.color_text_sub,
-                    on_click=self._handle_close,
-                    icon_size=20,
+                # Close button — circular neumorphic
+                ft.GestureDetector(
+                    content=ft.Container(
+                        content=ft.Icon(ft.Icons.CLOSE, color=t.color_text_sub, size=18),
+                        width=40,
+                        height=40,
+                        border_radius=ft.BorderRadius(20, 20, 20, 20),
+                        bgcolor=t.color_base,
+                        shadow=[
+                            ft.BoxShadow(
+                                offset=ft.Offset(-2, -2),
+                                blur_radius=5.0,
+                                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+                            ),
+                            ft.BoxShadow(
+                                offset=ft.Offset(2, 2),
+                                blur_radius=5.0,
+                                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+                            ),
+                        ],
+                        alignment=ft.Alignment(0, 0),
+                    ),
+                    on_tap=self._handle_close,
                 ),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+        # ── HERO ICON ───────────────────────────────────────────
+        hero_icon = ft.Container(
+            content=ft.Text(
+                self._type_emoji(activity.type.value),
+                size=44,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            width=96,
+            height=96,
+            border_radius=ft.BorderRadius(48, 48, 48, 48),
+            bgcolor=t.color_base,
+            shadow=[
+                ft.BoxShadow(
+                    offset=ft.Offset(3, 3),
+                    blur_radius=6.0,
+                    color=_with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(-3, -3),
+                    blur_radius=6.0,
+                    color=_with_opacity(t.shadow_light_opacity * 0.6, t.color_shadow_light),
+                ),
+            ],
+            alignment=ft.Alignment(0, 0),
+        )
+
+        hero_row = ft.Row(
+            controls=[hero_icon],
+            alignment=ft.MainAxisAlignment.CENTER,
         )
 
         # ── STREAK STATS ────────────────────────────────────────
@@ -2911,11 +3357,20 @@ class ActivityDetailView(ft.BottomSheet):
             content=ft.Row(
                 controls=[
                     self._stat_col("🔥", str(streak["current"]), "Racha"),
-                    self._divider(),
+                    ft.VerticalDivider(
+                        color=t.color_shadow_dark + "30",
+                        width=1,
+                    ),
                     self._stat_col("🏆", str(streak["best"]), "Mejor"),
-                    self._divider(),
+                    ft.VerticalDivider(
+                        color=t.color_shadow_dark + "30",
+                        width=1,
+                    ),
                     self._stat_col("✅", str(streak["total"]), "Total"),
-                    self._divider(),
+                    ft.VerticalDivider(
+                        color=t.color_shadow_dark + "30",
+                        width=1,
+                    ),
                     self._stat_col("⬡", str(streak["shields"]), "Escudos"),
                 ],
                 alignment=ft.MainAxisAlignment.SPACE_AROUND,
@@ -2927,23 +3382,74 @@ class ActivityDetailView(ft.BottomSheet):
 
         # ── WEEKLY PROGRESS ─────────────────────────────────────
         weekly_rate = streak["weekly_rate"]
+        completed_days = round(weekly_rate * 7)
+
+        day_indicators = ft.Row(
+            controls=[
+                ft.Container(
+                    content=ft.Text(
+                        day,
+                        size=10,
+                        color="#FFFFFF" if idx < completed_days else t.color_text_sub,
+                        text_align=ft.TextAlign.CENTER,
+                        weight=ft.FontWeight.W_500,
+                    ),
+                    width=24,
+                    height=24,
+                    border_radius=ft.BorderRadius(12, 12, 12, 12),
+                    bgcolor=t.color_secondary if idx < completed_days else t.color_base,
+                    shadow=[
+                        ft.BoxShadow(
+                            offset=ft.Offset(1, 1),
+                            blur_radius=3.0,
+                            color=_with_opacity(0.3, t.color_shadow_dark),
+                        ),
+                    ] if idx < completed_days else [
+                        ft.BoxShadow(
+                            offset=ft.Offset(1, 1),
+                            blur_radius=2.0,
+                            color=_with_opacity(t.shadow_dark_opacity * 0.4, t.color_shadow_dark),
+                        ),
+                        ft.BoxShadow(
+                            offset=ft.Offset(-1, -1),
+                            blur_radius=2.0,
+                            color=_with_opacity(t.shadow_light_opacity * 0.4, t.color_shadow_light),
+                        ),
+                    ],
+                    alignment=ft.Alignment(0, 0),
+                )
+                for idx, day in enumerate(_DAYS)
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        )
+
         weekly_card = neu_card(
             content=ft.Column(
                 controls=[
                     ft.Row(
                         controls=[
-                            ft.Text(
-                                "Progreso semanal",
-                                size=13,
-                                color=t.color_text_sub,
-                                weight=ft.FontWeight.W_500,
+                            ft.Column(
+                                controls=[
+                                    ft.Text(
+                                        "Progreso semanal",
+                                        size=13,
+                                        color=t.color_text_sub,
+                                        weight=ft.FontWeight.W_500,
+                                    ),
+                                    ft.Text(
+                                        f"{completed_days} de 7 días completados",
+                                        size=12,
+                                        color=t.color_text_sub,
+                                    ),
+                                ],
+                                spacing=2,
+                                expand=True,
                             ),
-                            ft.Container(expand=True),
                             ft.Text(
                                 f"{int(weekly_rate * 100)}%",
-                                size=13,
-                                color=t.color_primary,
+                                size=20,
                                 weight=ft.FontWeight.BOLD,
+                                color=t.color_primary,
                             ),
                         ],
                     ),
@@ -2954,11 +3460,12 @@ class ActivityDetailView(ft.BottomSheet):
                         height=8,
                         border_radius=ft.BorderRadius(4, 4, 4, 4),
                     ),
+                    day_indicators,
                 ],
-                spacing=8,
+                spacing=12,
             ),
             tokens=t,
-            padding=16,
+            padding=20,
         )
 
         # ── IMPLEMENTATION INTENTION ────────────────────────────
@@ -3071,25 +3578,65 @@ class ActivityDetailView(ft.BottomSheet):
                     )
                 )
 
-        # ── ACTION BUTTONS ───────────────────────────────────────
+        # ── ACTION BUTTONS (sticky footer with gradient) ─────────
         already_done_today = self._completed_today()
+        r_std = float(t.radius_standard)
 
-        complete_btn = NeuButton(
-            label="✅  Ya completada hoy" if already_done_today else "✅  Marcar como completada",
-            on_click=self._handle_complete,
-            tokens=t,
-            disabled=already_done_today,
+        # Primary complete button — ambient shadow (not neumorphic per DESIGN.md)
+        complete_btn = ft.Container(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, color="#FFFFFF", size=20),
+                    ft.Text(
+                        "Ya completada hoy" if already_done_today else "Marcar como completada",
+                        color="#FFFFFF",
+                        size=15,
+                        weight=ft.FontWeight.W_600,
+                    ),
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=8,
+            ),
+            bgcolor=t.color_primary,
+            border_radius=ft.BorderRadius(r_std, r_std, r_std, r_std),
+            padding=ft.Padding(left=24, right=24, top=14, bottom=14),
+            shadow=_ambient_shadow(t) if not already_done_today else None,
+            opacity=0.5 if already_done_today else 1.0,
+            on_click=None if already_done_today else self._handle_complete,
+            ink=not already_done_today,
         )
 
-        archive_btn = ft.TextButton(
-            content=ft.Text("Archivar semilla", color=t.color_accent_alert),
+        archive_btn = ft.Container(
+            content=ft.Text(
+                "Archivar semilla",
+                color=t.color_accent_alert,
+                size=14,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            alignment=ft.Alignment(0, 0),
+            padding=ft.Padding(left=0, right=0, top=8, bottom=0),
             on_click=self._handle_archive,
+            ink=True,
+        )
+
+        footer = ft.Container(
+            content=ft.Column(
+                controls=[complete_btn, archive_btn],
+                spacing=4,
+            ),
+            gradient=ft.LinearGradient(
+                begin=ft.Alignment(0, -1),
+                end=ft.Alignment(0, 1),
+                colors=["#00E8EDEA", "#E8EDEA", "#E8EDEA"],
+            ),
+            padding=ft.Padding(left=0, right=0, top=16, bottom=0),
         )
 
         # ── LAYOUT ──────────────────────────────────────────────
         sections: list[ft.Control] = [
+            handle,
             header,
-            ft.Divider(color=t.color_shadow_dark + "55", height=1),
+            hero_row,
             stats_card,
             weekly_card,
             *deadline_controls,
@@ -3099,21 +3646,16 @@ class ActivityDetailView(ft.BottomSheet):
                 tokens=t,
                 padding=16,
             )] if checkin_controls else []),
-            ft.Container(height=8),
-            complete_btn,
-            ft.Container(
-                content=archive_btn,
-                alignment=ft.Alignment(0, 0),
-            ),
+            ft.Container(height=4),
+            footer,
             ft.Container(height=16),
         ]
 
-        # Asegurar que h sea un número (800 por defecto) para evitar TypeError
         h = getattr(self._page, "height", 800) or 800
         content = ft.Container(
             height=max(500, h * 0.85),
             bgcolor=COLOR_BASE,
-            padding=ft.Padding(left=24, right=24, top=20, bottom=0),
+            padding=ft.Padding(left=24, right=24, top=0, bottom=0),
             border_radius=ft.BorderRadius(r, r, 0, 0),
             content=ft.SafeArea(
                 content=ft.Column(
@@ -3136,24 +3678,29 @@ class ActivityDetailView(ft.BottomSheet):
     def _stat_col(self, emoji: str, value: str, label: str) -> ft.Control:
         return ft.Column(
             controls=[
-                ft.Text(emoji, size=20),
+                ft.Text(emoji, size=20, text_align=ft.TextAlign.CENTER),
                 ft.Text(
                     value,
                     size=18,
                     weight=ft.FontWeight.BOLD,
                     color=self._tokens.color_primary,
+                    text_align=ft.TextAlign.CENTER,
                 ),
-                ft.Text(label, size=11, color=self._tokens.color_text_sub),
+                ft.Text(
+                    label,
+                    size=11,
+                    color=self._tokens.color_text_sub,
+                    text_align=ft.TextAlign.CENTER,
+                ),
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=2,
+            expand=True,
         )
 
-    def _divider(self) -> ft.Control:
-        return ft.VerticalDivider(
-            color=self._tokens.color_shadow_dark + "55",
-            width=1,
-        )
+    @staticmethod
+    def _type_emoji(type_value: str) -> str:
+        return {"A": "🌱", "B": "🎯", "C": "💤", "D": "⭐"}.get(type_value, "🌿")
 
     def _handle_close(self, e: object) -> None:
         self.open = False
@@ -3187,7 +3734,6 @@ class ActivityDetailView(ft.BottomSheet):
         self._on_archived()
 
     def _completed_today(self) -> bool:
-        """Devuelve True si ya hay un check-in hoy para esta actividad."""
         try:
             from datetime import date
             from core.database.db_helper import DBHelper
@@ -3223,7 +3769,6 @@ class ActivityDetailView(ft.BottomSheet):
         return {"current": 0, "best": 0, "total": 0, "shields": 1, "weekly_rate": 0.0}
 
     def _load_checkins(self) -> list[str]:
-        """Devuelve lista de timestamps de los últimos check-ins."""
         try:
             from core.database.db_helper import DBHelper
             rows = DBHelper.instance().get_connection().execute(
@@ -3535,10 +4080,14 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_button import NeuButton
-from core.design.neu_card import neu_card
+from core.design.neu_card import _with_opacity, neu_card_variant
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
+
+
+def _ambient_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
+    colour = _with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
+    return [ft.BoxShadow(offset=ft.Offset(0, 4), blur_radius=10.0, color=colour)]
 
 
 class StepFirstSeed(ft.Column):
@@ -3556,28 +4105,89 @@ class StepFirstSeed(ft.Column):
         )
         self._tokens = tokens
         self._on_done = on_done
+        t = tokens
+
+        # ── Progress dots ──────────────────────────────────────────
+        r_small = float(tokens.radius_small)
+        progress_dots = ft.Row(
+            controls=[
+                ft.Container(
+                    width=6, height=6,
+                    bgcolor=tokens.color_text_sub,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                    opacity=0.3,
+                ),
+                ft.Container(
+                    width=24, height=6,
+                    bgcolor=tokens.color_primary,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                ),
+                ft.Container(
+                    width=6, height=6,
+                    bgcolor=tokens.color_text_sub,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                    opacity=0.3,
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=8,
+        )
+
         self._field = ft.TextField(
             hint_text=self._copy("first_seed_hint"),
-            hint_style=ft.TextStyle(color=tokens.color_text_sub),
-            color=tokens.color_text_main,
+            hint_style=ft.TextStyle(color=t.color_text_sub),
+            color=t.color_text_main,
             border=ft.InputBorder.NONE,
             text_size=16,
             multiline=False,
+            expand=True,
         )
-        self._error = ft.Text("", color=tokens.color_accent_alert, size=13)
-        controls: list[ft.Control] = [
-            ft.Container(height=40),
+
+        field_wrapper = neu_card_variant(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(ft.Icons.EDIT_OUTLINED, color=t.color_text_sub, size=18),
+                    self._field,
+                ],
+                spacing=10,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            tokens=t,
+            variant="well",
+            padding=16,
+            width=320,
+        )
+
+        self._error = ft.Text("", color=t.color_accent_alert, size=13)
+
+        r_std = float(t.radius_standard)
+        confirm_btn = ft.Container(
+            content=ft.Text(
+                self._copy("confirm_habit"),
+                color="#FFFFFF",
+                size=16,
+                weight=ft.FontWeight.W_600,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            bgcolor=t.color_primary,
+            border_radius=ft.BorderRadius(r_std, r_std, r_std, r_std),
+            padding=ft.Padding(left=24, right=24, top=14, bottom=14),
+            shadow=_ambient_shadow(t),
+            on_click=self._handle_confirm,
+            ink=True,
+            width=320,
+        )
+
+        self.controls = [
+            ft.Container(height=20),
+            progress_dots,
+            ft.Container(height=20),
             make_text(self._copy("first_seed_title"), TextStyles.heading2),
             ft.Container(height=8),
-            neu_card(content=self._field, tokens=tokens, inset=True, width=300, padding=16),
+            field_wrapper,
             self._error,
-            NeuButton(
-                label=self._copy("confirm_habit"),
-                on_click=self._handle_confirm,
-                tokens=tokens,
-            ),
+            confirm_btn,
         ]
-        self.controls = controls
 
     def _handle_confirm(self, e: ft.ControlEvent) -> None:
         title = (self._field.value or "").strip()
@@ -3625,10 +4235,31 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_button import NeuButton
-from core.design.neu_card import neu_card
+from core.design.neu_card import _with_opacity, neu_card
+from core.design.neu_checkbox import NeuCheckbox
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
+
+
+def _ambient_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
+    colour = _with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
+    return [ft.BoxShadow(offset=ft.Offset(0, 4), blur_radius=10.0, color=colour)]
+
+
+def _disabled_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
+    t = tokens
+    return [
+        ft.BoxShadow(
+            offset=ft.Offset(1, 1),
+            blur_radius=3.0,
+            color=_with_opacity(t.shadow_dark_opacity * 0.4, t.color_shadow_dark),
+        ),
+        ft.BoxShadow(
+            offset=ft.Offset(-1, -1),
+            blur_radius=3.0,
+            color=_with_opacity(t.shadow_light_opacity * 0.4, t.color_shadow_light),
+        ),
+    ]
 
 
 class StepPact(ft.Column):
@@ -3646,11 +4277,40 @@ class StepPact(ft.Column):
         self._tokens = tokens
         self._on_done = on_done
         self._accepted = False
-        self._checkbox = ft.Checkbox(
-            active_color=tokens.color_primary,
-            check_color=tokens.color_shadow_light,
+        t = tokens
+
+        # ── Progress dots ──────────────────────────────────────────
+        r_small = float(tokens.radius_small)
+        progress_dots = ft.Row(
+            controls=[
+                ft.Container(
+                    width=6, height=6,
+                    bgcolor=tokens.color_text_sub,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                    opacity=0.3,
+                ),
+                ft.Container(
+                    width=6, height=6,
+                    bgcolor=tokens.color_text_sub,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                    opacity=0.3,
+                ),
+                ft.Container(
+                    width=24, height=6,
+                    bgcolor=tokens.color_primary,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=8,
         )
-        self._checkbox.on_change = self._handle_check
+
+        self._checkbox = NeuCheckbox(
+            checked=False,
+            on_change=self._handle_check,
+            tokens=tokens,
+            size=28.0,
+        )
 
         pact_row = ft.Row(
             controls=[
@@ -3663,30 +4323,48 @@ class StepPact(ft.Column):
                 ),
             ],
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=16,
         )
 
-        self._btn_container = ft.Container()
+        self._btn_container = ft.Container(width=320)
         self._rebuild_btn(disabled=True)
 
         controls: list[ft.Control] = [
-            ft.Container(height=40),
+            ft.Container(height=20),
+            progress_dots,
+            ft.Container(height=20),
             make_text(self._copy("pact_title"), TextStyles.heading2),
             ft.Container(height=8),
-            neu_card(content=pact_row, tokens=tokens, padding=20, width=300),
+            neu_card(content=pact_row, tokens=tokens, padding=20, width=320),
             self._btn_container,
         ]
         self.controls = controls
 
     def _rebuild_btn(self, disabled: bool) -> None:
-        self._btn_container.content = NeuButton(
-            label=self._copy("confirm_pact"),
-            on_click=self._handle_confirm,
-            tokens=self._tokens,
-            disabled=disabled,
+        t = self._tokens
+        r = float(t.radius_standard)
+        
+        self._btn_container.content = ft.Container(
+            content=ft.Text(
+                self._copy("confirm_pact"),
+                color="#FFFFFF" if not disabled else t.color_text_sub,
+                size=16,
+                weight=ft.FontWeight.W_600,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            bgcolor=t.color_primary if not disabled else t.color_base,
+            border_radius=ft.BorderRadius(r, r, r, r),
+            padding=ft.Padding(left=24, right=24, top=14, bottom=14),
+            shadow=_ambient_shadow(t) if not disabled else _disabled_shadow(t),
+            opacity=1.0 if not disabled else 0.6,
+            on_click=self._handle_confirm if not disabled else None,
+            ink=not disabled,
+            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            width=320,
         )
 
-    def _handle_check(self, e) -> None:
-        self._accepted = bool(self._checkbox.value)
+    def _handle_check(self, checked: bool) -> None:
+        self._accepted = checked
         self._rebuild_btn(disabled=not self._accepted)
         try: self._btn_container.update()
         except Exception: pass
@@ -3729,15 +4407,15 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_card import neu_card
+from core.design.neu_card import _with_opacity, neu_card
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
 
 _ARCHETYPES = {
-    "archetype_1": "sembrador",
-    "archetype_2": "jardinero",
-    "archetype_3": "podador",
+    "archetype_1": ("sembrador", "🌱"),
+    "archetype_2": ("jardinero", "🌿"),
+    "archetype_3": ("podador", "✂️"),
 }
 
 
@@ -3756,39 +4434,131 @@ class StepArchetype(ft.Column):
         self._tokens = tokens
         self._on_done = on_done
         question = self._copy("onboarding_question_1")
+
+        # ── Progress dots ──────────────────────────────────────────
+        r_small = float(tokens.radius_small)
+        progress_dots = ft.Row(
+            controls=[
+                ft.Container(
+                    width=24, height=6,
+                    bgcolor=tokens.color_primary,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                ),
+                ft.Container(
+                    width=6, height=6,
+                    bgcolor=tokens.color_text_sub,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                    opacity=0.3,
+                ),
+                ft.Container(
+                    width=6, height=6,
+                    bgcolor=tokens.color_text_sub,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                    opacity=0.3,
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=8,
+        )
+
         cards: list[ft.Control] = [
-            self._archetype_card(k) for k in _ARCHETYPES
+            self._archetype_card(k, icon) for k, (_, icon) in _ARCHETYPES.items()
         ]
+
         self.controls = (
-            [ft.Container(height=40), make_text(question, TextStyles.heading2),
-             ft.Container(height=8)]
+            [
+                ft.Container(height=20),
+                progress_dots,
+                ft.Container(height=20),
+                make_text(question, TextStyles.heading2),
+                ft.Container(height=8)
+            ]
             + cards
         )
 
-    def _archetype_card(self, key: str) -> ft.Control:
+    def _archetype_card(self, key: str, icon: str) -> ft.Control:
+        t = self._tokens
         label = self._copy(key)
-        card = neu_card(
-            content=ft.Text(
-                label, size=17,
-                color=self._tokens.color_text_main,
-                text_align=ft.TextAlign.CENTER,
-            ),
-            tokens=self._tokens,
-            padding=18,
-            width=300,
+
+        icon_circle = ft.Container(
+            content=ft.Text(icon, size=24),
+            width=48,
+            height=48,
+            border_radius=ft.BorderRadius(24, 24, 24, 24),
+            bgcolor=t.color_base,
+            shadow=[
+                ft.BoxShadow(
+                    offset=ft.Offset(2, 2),
+                    blur_radius=4.0,
+                    color=_with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(-2, -2),
+                    blur_radius=4.0,
+                    color=_with_opacity(t.shadow_light_opacity * 0.5, t.color_shadow_light),
+                ),
+            ],
+            alignment=ft.Alignment(0, 0),
         )
-        return ft.GestureDetector(
+
+        card = neu_card(
+            content=ft.Row(
+                controls=[
+                    icon_circle,
+                    ft.Text(
+                        label,
+                        size=16,
+                        color=t.color_text_main,
+                        weight=ft.FontWeight.W_500,
+                        expand=True,
+                    ),
+                    ft.Icon(ft.Icons.ARROW_FORWARD_IOS, size=14, color=t.color_text_sub),
+                ],
+                spacing=16,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            tokens=t,
+            padding=16,
+            width=320,
+        )
+
+        container = ft.Container(
             content=card,
-            on_tap=lambda e, k=key: self._select(k),
+            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            scale=1.0,
+        )
+
+        def _on_tap_down(e: ft.ControlEvent) -> None:
+            container.scale = 0.96
+            try: container.update()
+            except Exception: pass
+
+        def _on_tap_up(e: ft.ControlEvent) -> None:
+            container.scale = 1.0
+            try: container.update()
+            except Exception: pass
+            self._select(key)
+
+        def _on_tap_cancel(e: ft.ControlEvent) -> None:
+            container.scale = 1.0
+            try: container.update()
+            except Exception: pass
+
+        return ft.GestureDetector(
+            content=container,
+            on_tap_down=_on_tap_down,
+            on_tap_up=_on_tap_up,
+            on_tap_cancel=_on_tap_cancel,
         )
 
     def _select(self, key: str) -> None:
         try:
             from core.database.db_helper import DBHelper
             conn = DBHelper.instance().get_connection()
+            archetype_val = _ARCHETYPES.get(key, (key, ""))[0]
             conn.execute(
                 "INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)",
-                ("user_archetype", _ARCHETYPES.get(key, key)),
+                ("user_archetype", archetype_val),
             )
             conn.commit()
         except Exception:
@@ -3970,13 +4740,21 @@ class BacklogSection(ft.Column):
 # --- IMPORTS ---
 from __future__ import annotations
 
-
-
 import flet as ft
 
 from core.asset_helper import get_plant_stage_asset
-from core.design.neu_card import neu_card
+from core.design.neu_card import _with_opacity, neu_card
 from core.design.tokens import DesignTokens
+
+
+_STAGE_LABELS = [
+    ("Semilla dormida", "Planta tu primera intención."),
+    ("Primer brote", "Tus hábitos empiezan a crecer."),
+    ("Pequeña planta", "Estás construyendo consistencia."),
+    ("Planta joven", "Tu jardín florece día a día."),
+    ("Árbol maduro", "Una racha impresionante."),
+    ("Jardín frondoso", "¡Maestro del cultivo! 🌟"),
+]
 
 
 def _stage_from_completions(total: int) -> int:
@@ -3997,21 +4775,100 @@ class PlantGarden(ft.Container):
             scale=1.0,
             alignment=ft.Alignment(0, 0),
         )
-        card = neu_card(
-            content=ft.Column(
+        self._stage_label = ft.Text(
+            "",
+            size=16,
+            weight=ft.FontWeight.W_600,
+            color=tokens.color_primary,
+            text_align=ft.TextAlign.CENTER,
+        )
+        self._stage_sub = ft.Text(
+            "",
+            size=13,
+            color=tokens.color_text_sub,
+            text_align=ft.TextAlign.CENTER,
+        )
+        self._progress_bar = ft.ProgressBar(
+            value=0.0,
+            color=tokens.color_secondary,
+            bgcolor=tokens.color_shadow_dark + "44",
+            height=6,
+            border_radius=ft.BorderRadius(3, 3, 3, 3),
+        )
+
+        t = tokens
+        card_content = ft.Column(
+            controls=[
+                ft.Container(
+                    content=self._plant_container,
+                    alignment=ft.Alignment(0, 0),
+                    height=130,
+                ),
+                self._stage_label,
+                self._stage_sub,
+                ft.Container(height=8),
+                # Inset progress track
+                ft.Container(
+                    content=self._progress_bar,
+                    padding=ft.Padding(left=2, right=2, top=2, bottom=2),
+                    border_radius=ft.BorderRadius(5, 5, 5, 5),
+                    bgcolor=t.color_base,
+                    shadow=[
+                        ft.BoxShadow(
+                            offset=ft.Offset(1, 1),
+                            blur_radius=3.0,
+                            color=_with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
+                        ),
+                        ft.BoxShadow(
+                            offset=ft.Offset(-1, -1),
+                            blur_radius=3.0,
+                            color=_with_opacity(t.shadow_light_opacity * 0.5, t.color_shadow_light),
+                        ),
+                    ],
+                ),
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=6,
+        )
+
+        # Gradient background via Stack
+        r = float(tokens.radius_large)
+        gradient_bg = ft.Container(
+            gradient=ft.LinearGradient(
+                begin=ft.Alignment(-1, -1),
+                end=ft.Alignment(1, 1),
+                colors=[tokens.gradient_subtle_start, tokens.gradient_subtle_end],
+            ),
+            border_radius=ft.BorderRadius(r, r, r, r),
+            expand=True,
+        )
+
+        card = ft.Container(
+            content=ft.Stack(
                 controls=[
+                    gradient_bg,
                     ft.Container(
-                        content=self._plant_container,
-                        alignment=ft.Alignment(0, 0),
-                        height=140,
+                        content=card_content,
+                        padding=24,
                     ),
                 ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            tokens=tokens,
-            radius_key="large",
-            padding=24,
+            border_radius=ft.BorderRadius(r, r, r, r),
+            shadow=[
+                ft.BoxShadow(
+                    offset=ft.Offset(-t.shadow_offset, -t.shadow_offset),
+                    blur_radius=float(t.shadow_blur),
+                    color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(t.shadow_offset, t.shadow_offset),
+                    blur_radius=float(t.shadow_blur),
+                    color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+                ),
+            ],
+            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
         )
+
         super().__init__(content=card)
         self.load()
 
@@ -4019,6 +4876,16 @@ class PlantGarden(ft.Container):
         total = self._fetch_total()
         stage = _stage_from_completions(total)
         self._plant_container.content = get_plant_stage_asset(stage)
+        label, sub = _STAGE_LABELS[stage]
+        self._stage_label.value = label
+        self._stage_sub.value = sub
+        # Progress within current stage
+        thresholds = [0, 3, 7, 15, 30, 100, 100]
+        low = thresholds[stage]
+        high = thresholds[stage + 1] if stage < 5 else 100
+        span = high - low
+        progress = (total - low) / span if span > 0 else 1.0
+        self._progress_bar.value = max(0.0, min(1.0, progress))
 
     def _fetch_total(self) -> int:
         try:
@@ -4381,8 +5248,7 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_button import NeuButton
-from core.design.neu_card import neu_card
+from core.design.neu_card import _with_opacity, neu_card
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
@@ -4393,6 +5259,7 @@ class FreshStartBanner(ft.Container):
         tokens: DesignTokens,
         on_ritual: Callable[[], None],
     ) -> None:
+        t = tokens
         copy_key = (
             "fresh_start_monday" if date.today().weekday() == 0
             else "fresh_start_month"
@@ -4400,23 +5267,99 @@ class FreshStartBanner(ft.Container):
         message = self._copy(copy_key)
         ritual_label = self._copy("ritual_button")
 
-        controls: list[ft.Control] = [
-            ft.Text("🌱", size=24),
-            make_text(message, TextStyles.body),
-        ]
+        # ── Circular icon neumorphic ─────────────────────────────
+        icon_container = ft.Container(
+            content=ft.Icon(ft.Icons.WB_SUNNY_OUTLINED, color=t.color_primary, size=24),
+            width=48,
+            height=48,
+            border_radius=ft.BorderRadius(24, 24, 24, 24),
+            bgcolor=t.color_base,
+            shadow=[
+                ft.BoxShadow(
+                    offset=ft.Offset(-2, -2),
+                    blur_radius=5.0,
+                    color=_with_opacity(t.shadow_light_opacity * 0.8, t.color_shadow_light),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(2, 2),
+                    blur_radius=5.0,
+                    color=_with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
+                ),
+            ],
+            alignment=ft.Alignment(0, 0),
+        )
+
+        # ── Message row ─────────────────────────────────────────
+        message_col = ft.Column(
+            controls=[
+                ft.Text(
+                    "Un nuevo día para crecer",
+                    size=14,
+                    weight=ft.FontWeight.W_500,
+                    color=t.color_text_main,
+                ),
+                ft.Text(
+                    message,
+                    size=12,
+                    color=t.color_text_sub,
+                ),
+            ],
+            spacing=2,
+            expand=True,
+        )
+
+        info_row = ft.Row(
+            controls=[icon_container, message_col],
+            spacing=14,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+        # ── Ritual button — pill neumorphic ──────────────────────
+        r_full = 999.0
+        ritual_btn = ft.GestureDetector(
+            content=ft.Container(
+                content=ft.Row(
+                    controls=[
+                        ft.Text(
+                            ritual_label,
+                            size=13,
+                            weight=ft.FontWeight.W_500,
+                            color=t.color_text_main,
+                        ),
+                        ft.Icon(ft.Icons.ARROW_FORWARD, color=t.color_text_sub, size=16),
+                    ],
+                    spacing=6,
+                    tight=True,
+                ),
+                bgcolor=t.color_base,
+                border_radius=ft.BorderRadius(r_full, r_full, r_full, r_full),
+                padding=ft.Padding(left=14, right=14, top=8, bottom=8),
+                shadow=[
+                    ft.BoxShadow(
+                        offset=ft.Offset(-2, -2),
+                        blur_radius=5.0,
+                        color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+                    ),
+                    ft.BoxShadow(
+                        offset=ft.Offset(2, 2),
+                        blur_radius=5.0,
+                        color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+                    ),
+                ],
+            ),
+            on_tap=lambda e: on_ritual(),
+        )
+
         card = neu_card(
             content=ft.Column(
                 controls=[
-                    ft.Row(controls=controls, spacing=10),
-                    ft.Container(height=8),
-                    NeuButton(
-                        label=ritual_label,
-                        on_click=lambda e: on_ritual(),
-                        tokens=tokens,
-                        variant="secondary",
+                    ft.Row(
+                        controls=[info_row, ritual_btn],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
                 ],
-                spacing=4,
+                spacing=0,
             ),
             tokens=tokens,
             padding=16,
@@ -4446,7 +5389,7 @@ from typing import Optional
 
 import flet as ft
 
-from core.design.neu_card import neu_card
+from core.design.neu_card import _with_opacity
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 from domain.entities.activity import Activity
@@ -4459,6 +5402,22 @@ def _days_remaining(deadline: Optional[str]) -> Optional[int]:
         return (date.fromisoformat(deadline[:10]) - date.today()).days
     except ValueError:
         return None
+
+
+def _neu_shadows(t: DesignTokens) -> list[ft.BoxShadow]:
+    o = t.shadow_offset
+    return [
+        ft.BoxShadow(
+            offset=ft.Offset(-o, -o),
+            blur_radius=float(t.shadow_blur),
+            color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+        ),
+        ft.BoxShadow(
+            offset=ft.Offset(o, o),
+            blur_radius=float(t.shadow_blur),
+            color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+        ),
+    ]
 
 
 class DeadlinesSection(ft.Column):
@@ -4477,43 +5436,126 @@ class DeadlinesSection(ft.Column):
         self.controls = [make_text(section_title, TextStyles.heading2)] + cards
 
     def _deadline_card(self, activity: Activity, prefix: str) -> ft.Control:
+        t = self._tokens
         days = _days_remaining(activity.deadline)
-        urgent = days is not None and days <= 2
+        urgent = days is not None and days <= 3
+
         if days is None:
             horizon_text = "Sin fecha definida"
+            days_display = "?"
         elif days < 0:
             horizon_text = "Horizonte superado"
+            days_display = "!"
         elif days == 0:
-            horizon_text = "\u00a1Hoy es el d\u00eda!"
+            horizon_text = "¡Hoy es el día!"
+            days_display = "0"
         else:
-            horizon_text = f"{prefix} {days} d\u00edas"
+            horizon_text = f"{prefix} {days} días"
+            days_display = str(days)
 
-        text_color = (
-            self._tokens.color_accent_alert if urgent
-            else self._tokens.color_text_sub
-        )
-        return neu_card(
+        text_color = t.color_accent_alert if urgent else t.color_primary
+        r = float(t.radius_standard)
+
+        # ── Circular days indicator ──────────────────────────────
+        day_circle = ft.Container(
             content=ft.Column(
                 controls=[
                     ft.Text(
-                        activity.title,
-                        color=self._tokens.color_text_main,
-                        size=16,
-                        weight=ft.FontWeight.W_500,
-                        overflow=ft.TextOverflow.ELLIPSIS,
+                        days_display,
+                        size=18,
+                        weight=ft.FontWeight.BOLD,
+                        color=text_color,
+                        text_align=ft.TextAlign.CENTER,
                     ),
-                    ft.Row(
-                        controls=[
-                            ft.Icon(ft.Icons.CALENDAR_TODAY, color=text_color, size=14),
-                            ft.Text(horizon_text, color=text_color, size=13),
-                        ],
-                        spacing=4,
+                    ft.Text(
+                        "días",
+                        size=10,
+                        color=t.color_text_sub,
+                        text_align=ft.TextAlign.CENTER,
                     ),
                 ],
-                spacing=6,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=0,
+                tight=True,
             ),
-            tokens=self._tokens,
-            padding=16,
+            width=52,
+            height=52,
+            border_radius=ft.BorderRadius(26, 26, 26, 26),
+            bgcolor=t.color_base,
+            shadow=[
+                ft.BoxShadow(
+                    offset=ft.Offset(2, 2),
+                    blur_radius=4.0,
+                    color=_with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(-2, -2),
+                    blur_radius=4.0,
+                    color=_with_opacity(t.shadow_light_opacity * 0.6, t.color_shadow_light),
+                ),
+            ],
+            alignment=ft.Alignment(0, 0),
+        )
+
+        # ── Text column ─────────────────────────────────────────
+        info_col = ft.Column(
+            controls=[
+                ft.Text(
+                    activity.title,
+                    color=t.color_text_main,
+                    size=15,
+                    weight=ft.FontWeight.W_500,
+                    overflow=ft.TextOverflow.ELLIPSIS,
+                ),
+                ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.CALENDAR_TODAY, color=t.color_text_sub, size=12),
+                        ft.Text(horizon_text, color=t.color_text_sub, size=12),
+                    ],
+                    spacing=4,
+                ),
+            ],
+            spacing=4,
+            expand=True,
+        )
+
+        card_content = ft.Row(
+            controls=[day_circle, info_col],
+            spacing=14,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+        # ── Base card ────────────────────────────────────────────
+        base_card = ft.Container(
+            content=card_content,
+            bgcolor=t.color_base,
+            border_radius=ft.BorderRadius(r, r, r, r),
+            padding=ft.Padding(left=20 if urgent else 16, right=16, top=14, bottom=14),
+            shadow=_neu_shadows(t),
+            clip_behavior=ft.ClipBehavior.NONE,
+        )
+
+        if not urgent:
+            return base_card
+
+        # ── Urgent: Stack with left accent bar ───────────────────
+        accent_bar = ft.Container(
+            width=4,
+            bgcolor=t.color_accent_alert,
+            border_radius=ft.BorderRadius(r, 0, 0, r),
+        )
+
+        return ft.Stack(
+            controls=[
+                # Card with extra left padding for the bar
+                base_card,
+                # Accent bar pinned to the left
+                ft.Container(
+                    content=accent_bar,
+                    width=4,
+                    alignment=ft.Alignment(-1, 0),
+                ),
+            ],
         )
 
 
@@ -4757,7 +5799,7 @@ class HomeView(ft.Column):
                 return
 
             max_res = c.gamification_repo.get_setting("max_today_intentions")
-            max_intentions = int(max_res.value) if max_res.is_success() else 3
+            max_intentions = int(max_res.value) if max_res.is_success() and max_res.value is not None else 3
 
             if len(ids) >= max_intentions:
                 snack = ft.SnackBar(

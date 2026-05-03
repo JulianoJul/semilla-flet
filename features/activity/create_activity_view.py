@@ -4,8 +4,7 @@ from __future__ import annotations
 from typing import Any, Callable
 import flet as ft
 from core.design.colors import COLOR_BASE
-from core.design.neu_button import NeuButton
-from core.design.neu_card import neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
@@ -15,6 +14,27 @@ _TYPES = [
     ("C", "Semilla"),
     ("D", "Hoy"),
 ]
+
+
+def _handle_bar(tokens: DesignTokens) -> ft.Control:
+    """Drag handle bar — centred pill at the top of the sheet."""
+    return ft.Container(
+        content=ft.Container(
+            width=48,
+            height=6,
+            bgcolor=tokens.color_shadow_dark,
+            border_radius=ft.BorderRadius(3, 3, 3, 3),
+            opacity=0.5,
+        ),
+        alignment=ft.Alignment(0, 0),
+        padding=ft.Padding(left=0, right=0, top=8, bottom=12),
+    )
+
+
+def _ambient_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
+    """Soft ambient shadow for primary action buttons (not neumorphic)."""
+    colour = NeuCard._with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
+    return [ft.BoxShadow(offset=ft.Offset(0, 4), blur_radius=10.0, color=colour)]
 
 
 class CreateActivityView(ft.BottomSheet):
@@ -47,7 +67,7 @@ class CreateActivityView(ft.BottomSheet):
             expand=True,
         )
         self._intention_field = ft.TextField(
-            hint_text=self._copy("implementation_hint") or "Intención de implementación...",
+            hint_text=self._copy("implementation_hint") or "Cuándo y dónde lo harás...",
             hint_style=ft.TextStyle(color=tokens.color_text_sub),
             color=tokens.color_text_main,
             border=ft.InputBorder.NONE,
@@ -58,7 +78,7 @@ class CreateActivityView(ft.BottomSheet):
             expand=True,
         )
         self._coping_field = ft.TextField(
-            hint_text=self._copy("coping_hint") or "Si me resulta difícil, puedo...",
+            hint_text=self._copy("coping_hint") or "Si surge un obstáculo, entonces...",
             hint_style=ft.TextStyle(color=tokens.color_text_sub),
             color=tokens.color_text_main,
             border=ft.InputBorder.NONE,
@@ -70,8 +90,8 @@ class CreateActivityView(ft.BottomSheet):
         )
 
         # Deadline card — visible solo para tipo B
-        self._deadline_card = neu_card(
-            content=ft.Column(
+        self._deadline_card = self._field_with_icon(
+            field=ft.Column(
                 controls=[
                     ft.Text(
                         "Fecha límite",
@@ -83,9 +103,7 @@ class CreateActivityView(ft.BottomSheet):
                 ],
                 spacing=4,
             ),
-            tokens=self._tokens,
-            inset=True,
-            padding=14,
+            icon=ft.Icons.CALENDAR_TODAY,
         )
         self._deadline_wrapper = ft.AnimatedSwitcher(
             content=ft.Container(key="empty_deadline"),
@@ -100,11 +118,10 @@ class CreateActivityView(ft.BottomSheet):
             scroll=ft.ScrollMode.AUTO,
         )
 
-        # Confirm button — recreated on type change
-        self._confirm_btn = NeuButton(
+        # Primary confirm button (ambient shadow, not neumorphic per DESIGN.md)
+        self._confirm_btn = self._primary_button(
             label=self._confirm_label(),
             on_click=self._handle_save,
-            tokens=self._tokens,
         )
         self._confirm_wrapper = ft.Container(
             content=self._confirm_btn,
@@ -114,6 +131,7 @@ class CreateActivityView(ft.BottomSheet):
         # Main scrollable column
         self._column = ft.Column(
             controls=[
+                _handle_bar(tokens),
                 # Header
                 ft.Row(
                     controls=[
@@ -122,31 +140,53 @@ class CreateActivityView(ft.BottomSheet):
                             TextStyles.heading2,
                         ),
                         ft.Container(expand=True),
-                        ft.IconButton(
-                            icon=ft.Icons.CLOSE,
-                            icon_color=tokens.color_text_sub,
-                            on_click=self._handle_close,
-                            icon_size=20,
+                        # Close button — circular neumorphic
+                        ft.GestureDetector(
+                            content=ft.Container(
+                                content=ft.Icon(
+                                    ft.Icons.CLOSE,
+                                    color=tokens.color_text_sub,
+                                    size=18,
+                                ),
+                                width=40,
+                                height=40,
+                                border_radius=ft.BorderRadius(20, 20, 20, 20),
+                                bgcolor=tokens.color_base,
+                                shadow=[
+                                    ft.BoxShadow(
+                                        offset=ft.Offset(-2, -2),
+                                        blur_radius=5.0,
+                                        color=NeuCard._with_opacity(tokens.shadow_light_opacity, tokens.color_shadow_light),
+                                    ),
+                                    ft.BoxShadow(
+                                        offset=ft.Offset(2, 2),
+                                        blur_radius=5.0,
+                                        color=NeuCard._with_opacity(tokens.shadow_dark_opacity, tokens.color_shadow_dark),
+                                    ),
+                                ],
+                                alignment=ft.Alignment(0, 0),
+                            ),
+                            on_tap=self._handle_close,
                         ),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 ),
                 ft.Container(height=4),
-                # Type selector
+                # Type selector label
                 ft.Text(
-                    "Tipo de semilla",
+                    "Tipo de actividad",
                     size=12,
                     color=tokens.color_text_sub,
                     weight=ft.FontWeight.W_500,
                 ),
                 self._type_chips_row,
                 ft.Container(height=4),
-                # Title field
-                neu_card(
-                    content=ft.Column(
+                # Title field — well variant with icon
+                self._field_with_icon(
+                    field=ft.Column(
                         controls=[
                             ft.Text(
-                                "Nombre",
+                                "Nombre *",
                                 size=12,
                                 color=tokens.color_text_sub,
                                 weight=ft.FontWeight.W_500,
@@ -155,18 +195,16 @@ class CreateActivityView(ft.BottomSheet):
                         ],
                         spacing=4,
                     ),
-                    tokens=self._tokens,
-                    inset=True,
-                    padding=14,
+                    icon=ft.Icons.EDIT_OUTLINED,
                 ),
                 # Deadline (animated)
                 self._deadline_wrapper,
                 # Intention field
-                neu_card(
-                    content=ft.Column(
+                self._field_with_icon(
+                    field=ft.Column(
                         controls=[
                             ft.Text(
-                                "Intención",
+                                "Intención de implementación",
                                 size=12,
                                 color=tokens.color_text_sub,
                                 weight=ft.FontWeight.W_500,
@@ -175,13 +213,12 @@ class CreateActivityView(ft.BottomSheet):
                         ],
                         spacing=4,
                     ),
-                    tokens=self._tokens,
-                    inset=True,
-                    padding=14,
+                    icon=ft.Icons.LIGHTBULB_OUTLINE,
+                    multiline=True,
                 ),
                 # Coping field
-                neu_card(
-                    content=ft.Column(
+                self._field_with_icon(
+                    field=ft.Column(
                         controls=[
                             ft.Text(
                                 "Plan de afrontamiento",
@@ -193,13 +230,22 @@ class CreateActivityView(ft.BottomSheet):
                         ],
                         spacing=4,
                     ),
-                    tokens=self._tokens,
-                    inset=True,
-                    padding=14,
+                    icon=ft.Icons.SHIELD_OUTLINED,
+                    multiline=True,
                 ),
                 self._error,
                 ft.Container(height=8),
-                self._confirm_wrapper,
+                # Sticky footer with gradient fade
+                ft.Container(
+                    content=self._confirm_wrapper,
+                    gradient=ft.LinearGradient(
+                        begin=ft.Alignment(0, -1),
+                        end=ft.Alignment(0, 1),
+                        colors=["#00E8EDEA", "#E8EDEA", "#E8EDEA"],
+                    ),
+                    padding=ft.Padding(left=0, right=0, top=16, bottom=0),
+                    clip_behavior=ft.ClipBehavior.NONE,
+                ),
                 ft.Container(height=16),
             ],
             scroll=ft.ScrollMode.AUTO,
@@ -207,14 +253,13 @@ class CreateActivityView(ft.BottomSheet):
         )
 
         r = float(tokens.radius_large)
-        # Asegurar que h sea un número (800 por defecto) para evitar TypeError
         h = getattr(self._page, "height", 800) or 800
         super().__init__(
             use_safe_area=True,
             content=ft.Container(
                 height=max(500, h * 0.85),
                 bgcolor=COLOR_BASE,
-                padding=ft.Padding(left=24, right=24, top=20, bottom=0),
+                padding=ft.Padding(left=24, right=24, top=0, bottom=0),
                 border_radius=ft.BorderRadius(r, r, 0, 0),
                 content=ft.SafeArea(
                     content=self._column,
@@ -223,35 +268,100 @@ class CreateActivityView(ft.BottomSheet):
             ),
         )
 
+    # --- FIELD WRAPPER ---
+    def _field_with_icon(
+        self,
+        field: ft.Control,
+        icon: str,
+        multiline: bool = False,
+    ) -> ft.Container:
+        t = self._tokens
+        return NeuCard(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(icon, color=t.color_text_sub, size=18),
+                    field if not isinstance(field, ft.Column) else ft.Container(content=field, expand=True),
+                ],
+                spacing=10,
+                vertical_alignment=ft.CrossAxisAlignment.START if multiline else ft.CrossAxisAlignment.CENTER,
+                expand=True,
+            ),
+            tokens=t,
+            variant="well",
+            padding=14,
+        )
+
+    # --- PRIMARY BUTTON ---
+    def _primary_button(self, label: str, on_click: Callable[..., Any]) -> ft.Container:
+        t = self._tokens
+        r = float(t.radius_standard)
+        return ft.Container(
+            content=ft.Text(
+                label,
+                color="#FFFFFF",
+                size=16,
+                weight=ft.FontWeight.W_600,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            bgcolor=t.color_primary,
+            border_radius=ft.BorderRadius(r, r, r, r),
+            padding=ft.Padding(left=24, right=24, top=14, bottom=14),
+            shadow=_ambient_shadow(t),
+            on_click=on_click,
+            ink=True,
+            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            width=float("inf"),  # type: ignore
+            expand=True,
+        )
+
     # --- CHIPS ---
     def _build_chips(self) -> list[ft.Control]:
         chips: list[ft.Control] = []
         for code, label in _TYPES:
             selected = code == self._selected_type
-            bg = self._tokens.color_primary if selected else self._tokens.color_base
-            fg = self._tokens.color_shadow_light if selected else self._tokens.color_text_main
-            r = float(self._tokens.radius_small)
-            chip = ft.GestureDetector(
-                content=ft.Container(
+            r_full = 999.0
+            if selected:
+                chip = ft.Container(
                     content=ft.Text(
                         label,
-                        color=fg,
+                        color="#FFFFFF",
                         size=13,
                         weight=ft.FontWeight.W_500,
                     ),
-                    bgcolor=bg,
-                    border_radius=ft.BorderRadius(r, r, r, r),
-                    padding=ft.Padding(left=14, right=14, top=8, bottom=8),
+                    bgcolor=self._tokens.color_primary,
+                    border_radius=ft.BorderRadius(r_full, r_full, r_full, r_full),
+                    padding=ft.Padding(left=16, right=16, top=8, bottom=8),
                     shadow=[
                         ft.BoxShadow(
+                            offset=ft.Offset(-2, -2),
+                            blur_radius=4.0,
+                            color=NeuCard._with_opacity(self._tokens.shadow_light_opacity * 0.5, self._tokens.color_shadow_light),
+                        ),
+                        ft.BoxShadow(
                             offset=ft.Offset(2, 2),
-                            blur_radius=4,
-                            color="#33B8BDB9",
-                        )
-                    ] if selected else None,
-                ),
-                on_tap=lambda e, c=code: self._select_type(c),
-            )
+                            blur_radius=4.0,
+                            color=NeuCard._with_opacity(self._tokens.shadow_dark_opacity * 0.4, self._tokens.color_shadow_dark),
+                        ),
+                    ],
+                    on_click=lambda e, c=code: self._select_type(c),
+                    ink=True,
+                )
+            else:
+                chip = ft.GestureDetector(
+                    content=NeuCard(
+                        content=ft.Text(
+                            label,
+                            color=self._tokens.color_text_main,
+                            size=13,
+                            weight=ft.FontWeight.W_400,
+                        ),
+                        tokens=self._tokens,
+                        radius_key="full",
+                        variant="default",
+                        padding=ft.Padding(left=16, right=16, top=8, bottom=8),  # type: ignore
+                    ),
+                    on_tap=lambda e, c=code: self._select_type(c),
+                )
             chips.append(chip)
         return chips
 
@@ -262,12 +372,10 @@ class CreateActivityView(ft.BottomSheet):
             self._deadline_wrapper.content = self._deadline_card
         else:
             self._deadline_wrapper.content = ft.Container(key="empty_deadline")
-        self._confirm_btn = NeuButton(
+        self._confirm_wrapper.content = self._primary_button(
             label=self._confirm_label(),
             on_click=self._handle_save,
-            tokens=self._tokens,
         )
-        self._confirm_wrapper.content = self._confirm_btn
         try:
             self._column.update()
         except Exception:

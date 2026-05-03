@@ -45,6 +45,9 @@ def _seed_tokens(c: sqlite3.Connection) -> None:
         ("color_primary", "2E4A3E"), ("color_secondary", "7FAF8C"),
         ("color_text_main", "1A2E25"), ("color_text_sub", "4A6358"),
         ("color_accent_alert", "C17A3A"),
+        ("shadow_ambient_opacity", "0.3"),
+        ("gradient_subtle_start", "F0F5F2"),
+        ("gradient_subtle_end", "DFE4E1"),
     ]
     c.executemany("INSERT OR IGNORE INTO design_tokens VALUES (?, ?)", rows)
 

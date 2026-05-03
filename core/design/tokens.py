@@ -31,6 +31,9 @@ class DesignTokens:
     color_text_main: str = COLOR_TEXT_MAIN
     color_text_sub: str = COLOR_TEXT_SUB
     color_accent_alert: str = COLOR_ACCENT_ALERT
+    shadow_ambient_opacity: float = 0.3
+    gradient_subtle_start: str = "#F0F5F2"
+    gradient_subtle_end: str = "#DFE4E1"
 
     @staticmethod
     def load(db: object) -> DesignTokens:  # type: ignore[override]
@@ -56,6 +59,9 @@ class DesignTokens:
                 color_text_main=f"#{data.get('color_text_main', '1A2E25')}",
                 color_text_sub=f"#{data.get('color_text_sub', '4A6358')}",
                 color_accent_alert=f"#{data.get('color_accent_alert', 'C17A3A')}",
+                shadow_ambient_opacity=float(data.get("shadow_ambient_opacity", 0.3)),
+                gradient_subtle_start=f"#{data.get('gradient_subtle_start', 'F0F5F2')}",
+                gradient_subtle_end=f"#{data.get('gradient_subtle_end', 'DFE4E1')}",
             )
         except Exception as e:
             import logging

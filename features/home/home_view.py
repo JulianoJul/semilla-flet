@@ -237,7 +237,7 @@ class HomeView(ft.Column):
                 return
 
             max_res = c.gamification_repo.get_setting("max_today_intentions")
-            max_intentions = int(max_res.value) if max_res.is_success() else 3
+            max_intentions = int(max_res.value) if max_res.is_success() and max_res.value is not None else 3
 
             if len(ids) >= max_intentions:
                 snack = ft.SnackBar(

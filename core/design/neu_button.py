@@ -1,72 +1,64 @@
-# core/design/neu_button.py — NeuButton with pressed/disabled states.
+# core/design/neu_button.py — NeuButton component.
 
 # --- IMPORTS ---
 from __future__ import annotations
-
-from typing import Callable, Optional
+from dataclasses import field
 
 import flet as ft
 
 from core.design.colors import check_contrast
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 
 
-# --- HELPERS ---
-def _with_opacity(opacity: float, color: str) -> str:
-    """Return an #AARRGGBB hex string merging *color* (#RRGGBB) with *opacity* [0-1]."""
-    c = color.lstrip("#")
-    if len(c) == 3:
-        c = "".join(ch * 2 for ch in c)
-    aa = format(round(opacity * 255), "02X")
-    return f"#{aa}{c.upper()}"
-
-
 # --- COMPONENT ---
+@ft.control
 class NeuButton(ft.Container):
-    def __init__(
-        self,
-        label: str,
-        on_click: Callable[..., None],
-        tokens: Optional[DesignTokens] = None,
-        variant: str = "primary",
-        disabled: bool = False,
-    ) -> None:
-        t = tokens or DesignTokens.defaults()
-        text_color = t.color_shadow_light if variant == "primary" else t.color_text_main
-        bg = t.color_primary if variant == "primary" else t.color_base
+    label: str = ""
+    variant: str = "primary"
+    disabled_state: bool = False
+    tokens: DesignTokens = field(default_factory=DesignTokens.defaults)
+
+    def init(self) -> None:
+        super().init()
+        t = self.tokens
+        text_color = t.color_shadow_light if self.variant == "primary" else t.color_text_main
+        bg = t.color_primary if self.variant == "primary" else t.color_base
         check_contrast(text_color, bg)
 
         r = float(t.radius_standard)
-        super().__init__(
-            content=ft.Text(
-                label,
-                color=text_color,
-                weight=ft.FontWeight.W_600,
-                size=16,
-                text_align=ft.TextAlign.CENTER,
-            ),
-            bgcolor=bg,
-            border_radius=ft.BorderRadius(r, r, r, r),
-            padding=ft.Padding(left=24, right=24, top=14, bottom=14),
-            shadow=self._shadows(t) if not disabled else None,
-            opacity=0.4 if disabled else 1.0,
-            on_click=None if disabled else lambda e: on_click(e),
-            clip_behavior=ft.ClipBehavior.NONE,
-            ink=not disabled,
+        
+        self.content = ft.Text(
+            self.label,
+            color=text_color,
+            weight=ft.FontWeight.W_600,
+            size=16,
+            text_align=ft.TextAlign.CENTER,
         )
-
-    @staticmethod
-    def _shadows(t: DesignTokens) -> list[ft.BoxShadow]:
-        o = t.shadow_offset
-        return [
-            ft.BoxShadow(
-                offset=ft.Offset(-o, -o),
-                blur_radius=float(t.shadow_blur),
-                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
-            ),
-            ft.BoxShadow(
-                offset=ft.Offset(o, o),
-                blur_radius=float(t.shadow_blur),
-                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
-            ),
-        ]
+        self.bgcolor = bg
+        self.border_radius = ft.BorderRadius(r, r, r, r)
+        self.padding = ft.Padding(left=24, right=24, top=14, bottom=14)
+        
+        if not self.disabled_state:
+            o = t.shadow_offset
+            self.shadow = [
+                ft.BoxShadow(
+                    offset=ft.Offset(-o, -o),
+                    blur_radius=float(t.shadow_blur),
+                    color=NeuCard._with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(o, o),
+                    blur_radius=float(t.shadow_blur),
+                    color=NeuCard._with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+                ),
+            ]
+            self.opacity = 1.0
+            self.ink = True
+        else:
+            self.shadow = None
+            self.opacity = 0.4
+            self.on_click = None
+            self.ink = False
+            
+        self.clip_behavior = ft.ClipBehavior.NONE

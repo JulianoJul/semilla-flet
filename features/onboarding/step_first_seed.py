@@ -7,10 +7,14 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_button import NeuButton
-from core.design.neu_card import neu_card
+from core.design.neu_card import NeuCard_variant
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
+
+
+def _ambient_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
+    colour = NeuCard._with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
+    return [ft.BoxShadow(offset=ft.Offset(0, 4), blur_radius=10.0, color=colour)]
 
 
 class StepFirstSeed(ft.Column):
@@ -28,28 +32,89 @@ class StepFirstSeed(ft.Column):
         )
         self._tokens = tokens
         self._on_done = on_done
+        t = tokens
+
+        # ── Progress dots ──────────────────────────────────────────
+        r_small = float(tokens.radius_small)
+        progress_dots = ft.Row(
+            controls=[
+                ft.Container(
+                    width=6, height=6,
+                    bgcolor=tokens.color_text_sub,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                    opacity=0.3,
+                ),
+                ft.Container(
+                    width=24, height=6,
+                    bgcolor=tokens.color_primary,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                ),
+                ft.Container(
+                    width=6, height=6,
+                    bgcolor=tokens.color_text_sub,
+                    border_radius=ft.BorderRadius(r_small, r_small, r_small, r_small),
+                    opacity=0.3,
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=8,
+        )
+
         self._field = ft.TextField(
             hint_text=self._copy("first_seed_hint"),
-            hint_style=ft.TextStyle(color=tokens.color_text_sub),
-            color=tokens.color_text_main,
+            hint_style=ft.TextStyle(color=t.color_text_sub),
+            color=t.color_text_main,
             border=ft.InputBorder.NONE,
             text_size=16,
             multiline=False,
+            expand=True,
         )
-        self._error = ft.Text("", color=tokens.color_accent_alert, size=13)
-        controls: list[ft.Control] = [
-            ft.Container(height=40),
+
+        field_wrapper = NeuCard(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(ft.Icons.EDIT_OUTLINED, color=t.color_text_sub, size=18),
+                    self._field,
+                ],
+                spacing=10,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            tokens=t,
+            variant="well",
+            padding=16,
+            width=320,
+        )
+
+        self._error = ft.Text("", color=t.color_accent_alert, size=13)
+
+        r_std = float(t.radius_standard)
+        confirm_btn = ft.Container(
+            content=ft.Text(
+                self._copy("confirm_habit"),
+                color="#FFFFFF",
+                size=16,
+                weight=ft.FontWeight.W_600,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            bgcolor=t.color_primary,
+            border_radius=ft.BorderRadius(r_std, r_std, r_std, r_std),
+            padding=ft.Padding(left=24, right=24, top=14, bottom=14),
+            shadow=_ambient_shadow(t),
+            on_click=self._handle_confirm,
+            ink=True,
+            width=320,
+        )
+
+        self.controls = [
+            ft.Container(height=20),
+            progress_dots,
+            ft.Container(height=20),
             make_text(self._copy("first_seed_title"), TextStyles.heading2),
             ft.Container(height=8),
-            neu_card(content=self._field, tokens=tokens, inset=True, width=300, padding=16),
+            field_wrapper,
             self._error,
-            NeuButton(
-                label=self._copy("confirm_habit"),
-                on_click=self._handle_confirm,
-                tokens=tokens,
-            ),
+            confirm_btn,
         ]
-        self.controls = controls
 
     def _handle_confirm(self, e: ft.ControlEvent) -> None:
         title = (self._field.value or "").strip()

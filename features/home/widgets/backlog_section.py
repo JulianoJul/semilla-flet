@@ -7,7 +7,7 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_card import neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 from domain.entities.activity import Activity
@@ -54,7 +54,7 @@ class BacklogSection(ft.Column):
         except Exception: pass
 
     def _backlog_card(self, activity: Activity) -> ft.Control:
-        card = neu_card(
+        card = NeuCard(
             content=ft.Row(
                 controls=[
                     ft.Text(

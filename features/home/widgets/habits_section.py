@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import Callable
 import flet as ft
-from core.design.neu_card import neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 from domain.entities.activity import Activity
@@ -68,7 +68,7 @@ class HabitsSection(ft.Column):
             tight=True,
         )
 
-        card = neu_card(
+        card = NeuCard(
             content=card_content,
             tokens=self._tokens,
             radius_key="large",
