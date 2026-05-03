@@ -34,6 +34,8 @@ class ActivityLocalDatasource:
     def create(self, a: Activity) -> Activity:
         conn = self._db.get_connection()
         freq = a.frequency_config.to_json() if a.frequency_config else None
+        # Both inserts run in a single transaction — if the streak INSERT
+        # fails the activity INSERT is also rolled back, avoiding orphaned rows.
         cur = conn.execute(
             "INSERT INTO activities (title, type, frequency_config, "
             "deadline, implementation_intention, coping_plan, created_at) "
@@ -41,7 +43,6 @@ class ActivityLocalDatasource:
             (a.title, a.type.value, freq, a.deadline,
              a.implementation_intention, a.coping_plan, a.created_at),
         )
-        conn.commit()
         new_id = cur.lastrowid
         conn.execute(
             "INSERT INTO streaks (activity_id) VALUES (?)", (new_id,),
@@ -96,7 +97,7 @@ class ActivityLocalDatasource:
         activities = []
         for intention in intentions:
             a_row = conn.execute(
-                "SELECT * FROM activities WHERE id = ?", (intention.activity_id,)
+                "SELECT * FROM activities WHERE id = ? AND is_archived = 0", (intention.activity_id,)
             ).fetchone()
             if a_row:
                 activities.append(map_activity(a_row))
@@ -137,3 +138,17 @@ class ActivityLocalDatasource:
             id=cur.lastrowid, activity_id=c.activity_id,
             completed_at=c.completed_at, notes=c.notes,
         )
+
+    def get_checkins_since(self, activity_id: int, since_date: str) -> list[CheckIn]:
+        """Return all check-ins for *activity_id* on or after *since_date* (ISO date).
+
+        Timestamps are stored as 'YYYY-MM-DD HH:MM:SS' UTC, so DATE(completed_at)
+        extracts the date correctly without any timezone normalization needed.
+        """
+        conn = self._db.get_connection()
+        rows = conn.execute(
+            "SELECT * FROM checkins WHERE activity_id = ? "
+            "AND DATE(completed_at) >= ? ORDER BY completed_at DESC",
+            (activity_id, since_date),
+        ).fetchall()
+        return [map_checkin(r) for r in rows]

@@ -20,3 +20,4 @@ class Streak:
     shields_available: int = 1
     weekly_completion_rate: float = 0.0
     total_completions: int = 0
+    weekly_streak_count: int = 0

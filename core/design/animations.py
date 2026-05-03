@@ -30,7 +30,7 @@ def scale_pop(control: ft.Control) -> ft.Container:
 def slide_up(content: ft.Control, duration: int = 350) -> ft.Container:
     return ft.Container(
         content=content,
-        animate=ft.Animation(  # type: ignore
+        animate_size=ft.Animation(  # type: ignore
             duration=duration,
             curve=ft.AnimationCurve.EASE_OUT,
         ),

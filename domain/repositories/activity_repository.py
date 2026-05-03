@@ -48,3 +48,10 @@ class ActivityRepository(ABC):
 
     @abstractmethod
     def create_checkin(self, checkin: CheckIn) -> Result[CheckIn]: ...
+
+    @abstractmethod
+    def get_checkins_since(
+        self, activity_id: int, since_date: str,
+    ) -> Result[list[CheckIn]]:
+        """Return all check-ins for *activity_id* on or after *since_date* (ISO date string)."""
+        ...

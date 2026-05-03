@@ -11,6 +11,16 @@ from core.design.colors import check_contrast
 from core.design.tokens import DesignTokens
 
 
+# --- HELPERS ---
+def _with_opacity(opacity: float, color: str) -> str:
+    """Return an #AARRGGBB hex string merging *color* (#RRGGBB) with *opacity* [0-1]."""
+    c = color.lstrip("#")
+    if len(c) == 3:
+        c = "".join(ch * 2 for ch in c)
+    aa = format(round(opacity * 255), "02X")
+    return f"#{aa}{c.upper()}"
+
+
 # --- COMPONENT ---
 class NeuButton(ft.Container):
     def __init__(
@@ -42,6 +52,7 @@ class NeuButton(ft.Container):
             opacity=0.4 if disabled else 1.0,
             on_click=None if disabled else lambda e: on_click(e),
             clip_behavior=ft.ClipBehavior.NONE,
+            ink=not disabled,
         )
 
     @staticmethod
@@ -51,15 +62,11 @@ class NeuButton(ft.Container):
             ft.BoxShadow(
                 offset=ft.Offset(-o, -o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.Colors.with_opacity(
-                    t.shadow_light_opacity, t.color_shadow_light,
-                ),
+                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
             ),
             ft.BoxShadow(
                 offset=ft.Offset(o, o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.Colors.with_opacity(
-                    t.shadow_dark_opacity, t.color_shadow_dark,
-                ),
+                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
             ),
         ]

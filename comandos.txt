@@ -1,0 +1,12 @@
+adb reverse tcp:8550 tcp:8550 && source .venv/bin/activate && flet run --android -p 8550 main.py
+
+pkill -f "flet"
+
+find . -maxdepth 4 -name "*.py" -not -path "*/.*" -exec sh -c 'echo "--- FILE: {} ---"; cat {}; echo "\n"' \; > codigo_completo_semilla.txt
+
+
+te voy a pegar los mensajes que me dieron varios modelos algunos mas detallados que otros, reucerda activar la venv con source .venv/bin/activate
+
+probar directo en pc
+source .venv/bin/activate && flet run main.py
+

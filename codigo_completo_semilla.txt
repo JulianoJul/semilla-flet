@@ -11,6 +11,16 @@ import flet as ft
 from core.design.tokens import DesignTokens
 
 
+# --- HELPERS ---
+def _with_opacity(opacity: float, color: str) -> str:
+    """Return an #AARRGGBB hex string merging *color* (#RRGGBB) with *opacity* [0-1]."""
+    c = color.lstrip("#")
+    if len(c) == 3:
+        c = "".join(ch * 2 for ch in c)
+    aa = format(round(opacity * 255), "02X")
+    return f"#{aa}{c.upper()}"
+
+
 # --- FACTORY ---
 def neu_card(
     content: ft.Control,
@@ -35,16 +45,12 @@ def neu_card(
             ft.BoxShadow(
                 offset=ft.Offset(o, o),
                 blur_radius=float(t.shadow_blur // 2),
-                color=ft.Colors.with_opacity(
-                    t.shadow_dark_opacity, t.color_shadow_dark,
-                ),
+                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
             ),
             ft.BoxShadow(
                 offset=ft.Offset(-o, -o),
                 blur_radius=float(t.shadow_blur // 2),
-                color=ft.Colors.with_opacity(
-                    t.shadow_light_opacity, t.color_shadow_light,
-                ),
+                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
             ),
         ]
     else:
@@ -52,16 +58,12 @@ def neu_card(
             ft.BoxShadow(
                 offset=ft.Offset(-o, -o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.Colors.with_opacity(
-                    t.shadow_light_opacity, t.color_shadow_light,
-                ),
+                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
             ),
             ft.BoxShadow(
                 offset=ft.Offset(o, o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.Colors.with_opacity(
-                    t.shadow_dark_opacity, t.color_shadow_dark,
-                ),
+                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
             ),
         ]
 
@@ -101,8 +103,8 @@ class DesignTokens:
     radius_large: int = 24
     shadow_blur: int = 8
     shadow_offset: int = 4
-    shadow_dark_opacity: float = 0.4
-    shadow_light_opacity: float = 0.8
+    shadow_dark_opacity: float = 0.4   # matches seed_data.py
+    shadow_light_opacity: float = 0.8  # matches seed_data.py
     color_base: str = COLOR_BASE
     color_shadow_dark: str = COLOR_SHADOW_DARK
     color_shadow_light: str = COLOR_SHADOW_LIGHT
@@ -137,7 +139,9 @@ class DesignTokens:
                 color_text_sub=f"#{data.get('color_text_sub', '4A6358')}",
                 color_accent_alert=f"#{data.get('color_accent_alert', 'C17A3A')}",
             )
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.warning("Failed to load design tokens from database: %s", e)
             return DesignTokens()
 
     @staticmethod
@@ -157,6 +161,16 @@ import flet as ft
 
 from core.design.colors import check_contrast
 from core.design.tokens import DesignTokens
+
+
+# --- HELPERS ---
+def _with_opacity(opacity: float, color: str) -> str:
+    """Return an #AARRGGBB hex string merging *color* (#RRGGBB) with *opacity* [0-1]."""
+    c = color.lstrip("#")
+    if len(c) == 3:
+        c = "".join(ch * 2 for ch in c)
+    aa = format(round(opacity * 255), "02X")
+    return f"#{aa}{c.upper()}"
 
 
 # --- COMPONENT ---
@@ -190,6 +204,7 @@ class NeuButton(ft.Container):
             opacity=0.4 if disabled else 1.0,
             on_click=None if disabled else lambda e: on_click(e),
             clip_behavior=ft.ClipBehavior.NONE,
+            ink=not disabled,
         )
 
     @staticmethod
@@ -199,16 +214,12 @@ class NeuButton(ft.Container):
             ft.BoxShadow(
                 offset=ft.Offset(-o, -o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.Colors.with_opacity(
-                    t.shadow_light_opacity, t.color_shadow_light,
-                ),
+                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
             ),
             ft.BoxShadow(
                 offset=ft.Offset(o, o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.Colors.with_opacity(
-                    t.shadow_dark_opacity, t.color_shadow_dark,
-                ),
+                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
             ),
         ]
 
@@ -278,7 +289,7 @@ def fade_in(content: ft.Control, duration: int = 300) -> ft.AnimatedSwitcher:
 def scale_pop(control: ft.Control) -> ft.Container:
     return ft.Container(
         content=control,
-        animate_scale=ft.animation.Animation(  # type: ignore
+        animate_scale=ft.Animation(  # type: ignore
             duration=250,
             curve=ft.AnimationCurve.BOUNCE_OUT,
         ),
@@ -289,7 +300,7 @@ def scale_pop(control: ft.Control) -> ft.Container:
 def slide_up(content: ft.Control, duration: int = 350) -> ft.Container:
     return ft.Container(
         content=content,
-        animate=ft.animation.Animation(  # type: ignore
+        animate_size=ft.Animation(  # type: ignore
             duration=duration,
             curve=ft.AnimationCurve.EASE_OUT,
         ),
@@ -487,9 +498,7 @@ def get_asset(
     placeholder_fn: Callable[..., ft.Control],
     **kwargs: Any,
 ) -> ft.Control:
-    if Path(path).exists():
-        return ft.Image(src=path, **kwargs)
-    return placeholder_fn(**kwargs)
+    return ft.Image(src=path, error_content=placeholder_fn(**kwargs), **kwargs)
 
 
 # --- PLANT ASSETS ---
@@ -501,15 +510,14 @@ def get_plant_stage_asset(stage: int) -> ft.Control:
     # Formato esperado: PNG, 80×80 a 200×200 px
     # Estilo: ilustración flat, paleta verde suave (#7FAF8C)
     asset_path = f"assets/plants/stage_{stage}.png"
-    if Path(asset_path).exists():
-        size = 80 + (stage * 20)
-        return ft.Image(src=asset_path, width=size, height=size)
-
-    # PLACEHOLDER: emoji que escala con el estado de crecimiento
+    size = 80 + (stage * 20)
     clamped = min(max(stage, 0), len(_PLANT_EMOJIS) - 1)
     emoji = _PLANT_EMOJIS[clamped]
-    size = 24 + (clamped * 10)
-    return ft.Text(emoji, size=float(size))
+    esize = 24 + (clamped * 10)
+    fallback = ft.Text(emoji, size=float(esize))
+    
+    img = ft.Image(src=asset_path, width=size, height=size, error_content=fallback)
+    return ft.Container(content=img, width=size, height=size, alignment=ft.Alignment(0, 0))
 
 
 # --- BADGE ASSETS ---
@@ -518,12 +526,9 @@ def get_badge_asset(badge_key: str, emoji: Optional[str] = None) -> ft.Control:
     # Dimensiones: 48×48 px, fondo transparente
     # Estilo: icono monocromático con COLOR_PRIMARY (#2E4A3E)
     asset_path = f"assets/badges/{badge_key}.png"
-    if Path(asset_path).exists():
-        return ft.Image(src=asset_path, width=48, height=48)
-
-    # PLACEHOLDER: emoji temático por tipo de insignia
     fallback_emoji = emoji or _BADGE_EMOJI_MAP.get(badge_key, "🏅")
-    return ft.Text(fallback_emoji, size=40.0)
+    fallback = ft.Text(fallback_emoji, size=40.0)
+    return ft.Image(src=asset_path, width=48, height=48, error_content=fallback)
 
 
 # --- SOUND ASSETS ---
@@ -533,16 +538,9 @@ def get_sound_asset(name: str) -> Callable[[], None]:
     #                     streak.mp3, shield.mp3, reset.mp3
     # Formato: MP3, 44100 Hz, mono, < 2s de duración
     # Si no existe: función silenciosa con log de debug
-    sound_path = Path(f"assets/sounds/{name}.mp3")
-    if sound_path.exists():
-        def _play() -> None:
-            logger.debug("SOUND: playing %s", name)
-        return _play
-
-    def _noop() -> None:
-        logger.debug("SOUND: placeholder — asset not found: %s.mp3", name)
-
-    return _noop
+    def _play() -> None:
+        logger.debug("SOUND: playing %s", name)
+    return _play
 
 
 # --- ICON ASSETS ---
@@ -551,12 +549,9 @@ def get_icon_asset(name: str, size: float = 24.0) -> ft.Control:
     # Dimensiones: 24×24 px, viewBox estándar
     # Estilo: line icons, stroke-width 1.5, COLOR_PRIMARY
     svg_path = f"assets/icons/{name}.svg"
-    if Path(svg_path).exists():
-        return ft.Image(src=svg_path, width=size, height=size)
-
-    # PLACEHOLDER: ft.Icon con el ícono Flet más cercano
-    fallback = _ICON_FALLBACK_MAP.get(name, ft.Icons.HELP_OUTLINE)
-    return ft.Icon(fallback, size=size, color="#2E4A3E")
+    fallback_icon = _ICON_FALLBACK_MAP.get(name, ft.Icons.HELP_OUTLINE)
+    fallback = ft.Icon(fallback_icon, size=size, color="#2E4A3E")
+    return ft.Image(src=svg_path, width=size, height=size, error_content=fallback)
 
 
 --- FILE: ./core/result.py ---
@@ -697,11 +692,13 @@ class DBHelper:
 
     # --- MIGRATION ---
     def init_db(self) -> None:
-        from core.database.migrations.migration_1 import run_migration
+        from core.database.migrations.migration_1 import run_migration as run_migration_1
+        from core.database.migrations.migration_2 import run_migration as run_migration_2
 
         conn = self.get_connection()
         try:
-            run_migration(conn)
+            run_migration_1(conn)
+            run_migration_2(conn)
             conn.commit()
             logger.info("DB initialized at %s", self._db_path)
         except Exception:
@@ -732,6 +729,7 @@ def _seed_settings(c: sqlite3.Connection) -> None:
         ("sound_volume", "1.0"), ("haptic_intensity", "1.0"),
         ("compassion_pact_accepted", "0"), ("user_archetype", ""),
         ("onboarding_complete", "0"), ("last_chest_date", ""),
+        ("endowed_progress_checkins", "2"),
     ]
     c.executemany("INSERT OR IGNORE INTO settings VALUES (?, ?)", rows)
 
@@ -739,9 +737,8 @@ def _seed_settings(c: sqlite3.Connection) -> None:
 # --- GAMIFICATION PARAMS ---
 def _seed_gamification(c: sqlite3.Connection) -> None:
     rows = [
-        ("chest_drop_rate", "0.4"), ("pity_timer_days", "3"),
+        ("pity_timer_days", "3"),
         ("streak_milestone_days", "[7,14,21,30,60,100]"),
-        ("endowed_progress_checkins", "2"),
     ]
     c.executemany("INSERT OR IGNORE INTO gamification_params VALUES (?, ?)", rows)
 
@@ -805,7 +802,9 @@ def _seed_ui_copy(c: sqlite3.Connection) -> None:
         ("chest_opened_prefix", "¡Has encontrado un cofre!", "gamification"),
         ("chest_title", "¡Cofre encontrado!", "gamification"),
         ("chest_open_label", "Abrir", "gamification"),
-        ("chest_reward", "¡Una recompensa especial! 🌱", "gamification"),
+        ("chest_reward_1", "¡Una recompensa especial! 🌱", "gamification"),
+        ("chest_reward_2", "Tu jardín se fortalece 🌿", "gamification"),
+        ("chest_reward_3", "¡Sigue cultivando tus metas! 🌻", "gamification"),
         ("badge_celebration", "¡Nueva insignia desbloqueada!", "gamification"),
         ("create_title", "Plantar nueva semilla", "create"),
         ("confirm_a", "Plantar hábito", "create"),
@@ -832,6 +831,10 @@ def _seed_notif_copy(c: sqlite3.Connection) -> None:
         ("streak_broken", "Tu racha se reinició. Cada día es nueva semilla.", "reset", None),
         ("shield_used", "Tu escudo protegió la racha. Sigue cultivando.", "shield", None),
         ("fade_out", "Llevas tiempo sin visitar tu jardín. Todo sigue aquí.", "fade", None),
+        ("notification_morning_title", "Semilla", "morning", None),
+        ("notification_evening_title", "¡Bien hecho!", "evening", None),
+        ("notification_streak_reminder", "Tu jardín te espera 🌱", "reminder", None),
+        ("notification_completion", "Tu jardín crece 🌱", "feedback", None),
     ])
 
 
@@ -927,6 +930,41 @@ def run_migration(conn: sqlite3.Connection) -> None:
     seed_all(conn)
 
 
+--- FILE: ./core/database/migrations/migration_2.py ---
+"""
+core/database/migrations/migration_2.py — Add weekly_streak_count to streaks.
+
+Adds the `weekly_streak_count` column used by the 'constancia' badge
+to track consecutive ISO weeks where weekly_completion_rate >= 0.8.
+Uses ALTER TABLE ... ADD COLUMN which is safe to run on an existing DB
+because the column may already exist (guarded by a try/except).
+"""
+
+# --- IMPORTS ---
+from __future__ import annotations
+
+import logging
+import sqlite3
+
+logger = logging.getLogger(__name__)
+
+
+# --- MIGRATION ---
+def run_migration(conn: sqlite3.Connection) -> None:
+    try:
+        conn.execute(
+            "ALTER TABLE streaks ADD COLUMN weekly_streak_count INTEGER DEFAULT 0"
+        )
+        conn.commit()
+        logger.info("migration_2: added weekly_streak_count to streaks")
+    except sqlite3.OperationalError as exc:
+        # Column already exists — idempotent, safe to ignore.
+        if "duplicate column name" in str(exc).lower():
+            logger.debug("migration_2: weekly_streak_count already exists, skipping")
+        else:
+            raise
+
+
 --- FILE: ./core/database/migrations/__init__.py ---
 
 
@@ -976,7 +1014,9 @@ class AppContainer:
 
         self.notification_service = NotificationService()
 
-        self.manage_streak_uc = ManageStreakUseCase(self.gamification_repo)
+        self.manage_streak_uc = ManageStreakUseCase(
+            self.gamification_repo, self.activity_repo,
+        )
 
         self.create_activity_uc = CreateActivityUseCase(
             self.activity_repo, self.gamification_repo,
@@ -1038,8 +1078,8 @@ class GamificationRepository(ABC):
 
     @abstractmethod
     def check_and_unlock_badges(
-        self, activity_id: int,
-    ) -> Result[Optional[BadgeEntity]]: ...
+        self, activity_id: int, shield_was_used: bool = False,
+    ) -> Result[list[BadgeEntity]]: ...
 
     @abstractmethod
     def should_show_chest(self) -> Result[bool]: ...
@@ -1109,6 +1149,13 @@ class ActivityRepository(ABC):
     @abstractmethod
     def create_checkin(self, checkin: CheckIn) -> Result[CheckIn]: ...
 
+    @abstractmethod
+    def get_checkins_since(
+        self, activity_id: int, since_date: str,
+    ) -> Result[list[CheckIn]]:
+        """Return all check-ins for *activity_id* on or after *since_date* (ISO date string)."""
+        ...
+
 
 --- FILE: ./domain/entities/badge_entity.py ---
 """
@@ -1159,6 +1206,7 @@ class Streak:
     shields_available: int = 1
     weekly_completion_rate: float = 0.0
     total_completions: int = 0
+    weekly_streak_count: int = 0
 
 
 --- FILE: ./domain/entities/activity.py ---
@@ -1342,13 +1390,19 @@ from datetime import date, datetime, timedelta, timezone
 from core.result import Failure, Result, Success
 from domain.entities.results import StreakUpdateResult
 from domain.entities.streak import Streak
+from domain.repositories.activity_repository import ActivityRepository
 from domain.repositories.gamification_repository import GamificationRepository
 
 
 # --- USE CASE ---
 class ManageStreakUseCase:
-    def __init__(self, gamification_repo: GamificationRepository) -> None:
+    def __init__(
+        self,
+        gamification_repo: GamificationRepository,
+        activity_repo: ActivityRepository,
+    ) -> None:
         self._repo = gamification_repo
+        self._activity_repo = activity_repo
 
     def execute(self, activity_id: int) -> Result[StreakUpdateResult]:
         streak_res = self._repo.get_streak(activity_id)
@@ -1360,6 +1414,14 @@ class ManageStreakUseCase:
         shield_used = False
         streak_reset = False
 
+        # --- WEEKLY SHIELD REGENERATION ---
+        # If we are in a new week compared to the last check-in, restore shields.
+        self._maybe_refresh_shields(streak, today, activity_id)
+        # Re-fetch streak to get updated shields_available after potential refresh.
+        streak_res2 = self._repo.get_streak(activity_id)
+        if isinstance(streak_res2, Success):
+            streak = streak_res2.value
+
         last = self._parse_date(streak.last_checkin_date)
         gap = (today - last).days if last else None
 
@@ -1369,6 +1431,8 @@ class ManageStreakUseCase:
         elif gap == 1:
             new_count = streak.current_count + 1
         elif gap == 2 and self._within_grace(today):
+            # Grace period: first hours of day allow registering yesterday's
+            # check-in (gap==2 means today minus last recorded day = 2).
             new_count = streak.current_count + 1
         elif streak.shields_available > 0:
             shield_res = self._repo.use_shield(activity_id)
@@ -1379,10 +1443,27 @@ class ManageStreakUseCase:
             new_count = 1
             streak_reset = True
 
-        # --- WEEKLY RATE ---
-        week_rate = self._calc_weekly_rate(streak, today)
+        # --- WEEKLY STREAK COUNT ---
+        new_weekly_streak_count = streak.weekly_streak_count
+        if last is not None:
+            last_week_start = last - timedelta(days=last.weekday())
+            this_week_start = today - timedelta(days=today.weekday())
+            weeks_diff = (this_week_start - last_week_start).days // 7
+            if weeks_diff == 1:
+                # Consecutive week
+                if streak.weekly_completion_rate >= 0.8:
+                    new_weekly_streak_count += 1
+                else:
+                    new_weekly_streak_count = 0
+            elif weeks_diff > 1:
+                # Missed full week(s)
+                new_weekly_streak_count = 0
+
+        # --- WEEKLY RATE (real query) ---
+        week_rate = self._calc_weekly_rate(activity_id, today)
         new_best = max(streak.best_count, new_count)
-        total = streak.total_completions + 1
+        # Don't inflate total_completions on same-day duplicate check-ins.
+        total = streak.total_completions + (0 if gap == 0 else 1)
 
         updated = Streak(
             id=streak.id, activity_id=activity_id,
@@ -1391,6 +1472,7 @@ class ManageStreakUseCase:
             shields_available=streak.shields_available - (1 if shield_used else 0),
             weekly_completion_rate=week_rate,
             total_completions=total,
+            weekly_streak_count=new_weekly_streak_count,
         )
 
         save_res = self._repo.update_streak(updated)
@@ -1403,12 +1485,60 @@ class ManageStreakUseCase:
             streak_reset=streak_reset,
         ))
 
+    # --- WEEKLY SHIELD REFRESH ---
+    def _maybe_refresh_shields(
+        self, streak: Streak, today: date, activity_id: int,
+    ) -> None:
+        """Replenish shields if a new week has started since the last check-in."""
+        last = self._parse_date(streak.last_checkin_date)
+        if last is None:
+            return
+        last_week_start = last - timedelta(days=last.weekday())
+        this_week_start = today - timedelta(days=today.weekday())
+        if this_week_start <= last_week_start:
+            return  # Still same week — nothing to restore.
+        shields_res = self._repo.get_setting("shields_per_week")
+        shields_per_week = int(shields_res.value) if isinstance(shields_res, Success) else 1
+        if streak.shields_available >= shields_per_week:
+            return  # Already at or above weekly maximum — no restore needed.
+        restored = Streak(
+            id=streak.id, activity_id=streak.activity_id,
+            current_count=streak.current_count,
+            best_count=streak.best_count,
+            last_checkin_date=streak.last_checkin_date,
+            shields_available=shields_per_week,
+            weekly_completion_rate=streak.weekly_completion_rate,
+            total_completions=streak.total_completions,
+            weekly_streak_count=streak.weekly_streak_count,
+        )
+        self._repo.update_streak(restored)
+
+    # --- REAL WEEKLY RATE ---
+    def _calc_weekly_rate(self, activity_id: int, today: date) -> float:
+        """Count distinct days with a check-in in the current ISO week."""
+        week_start = today - timedelta(days=today.weekday())
+        days_in_week = min((today - week_start).days + 1, 7)
+        if days_in_week == 0:
+            return 0.0
+        checkins_res = self._activity_repo.get_checkins_since(
+            activity_id, week_start.isoformat(),
+        )
+        if isinstance(checkins_res, Failure):
+            return 0.0
+        # Count distinct calendar days (ISO date prefix of completed_at).
+        # The check-in for today is already in the DB when this runs, so
+        # distinct_days already includes today — no +1 needed.
+        distinct_days = len({c.completed_at[:10] for c in checkins_res.value})
+        completed = min(distinct_days, days_in_week)
+        return round(completed / days_in_week, 2)
+
+    # --- GRACE PERIOD ---
     def _within_grace(self, today: date) -> bool:
         grace_res = self._repo.get_setting("grace_period_hours")
         if isinstance(grace_res, Failure):
             return False
         grace_hours = int(grace_res.value)
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         return now.hour < grace_hours
 
     @staticmethod
@@ -1420,15 +1550,6 @@ class ManageStreakUseCase:
         except ValueError:
             return None
 
-    @staticmethod
-    def _calc_weekly_rate(streak: Streak, today: date) -> float:
-        week_start = today - timedelta(days=today.weekday())
-        days_in_week = min((today - week_start).days + 1, 7)
-        if days_in_week == 0:
-            return 0.0
-        completed = min(streak.current_count, days_in_week)
-        return round(completed / days_in_week, 2)
-
 
 --- FILE: ./domain/use_cases/create_activity.py ---
 """
@@ -1438,7 +1559,7 @@ domain/use_cases/create_activity.py — Create a new activity.
 # --- IMPORTS ---
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from core.result import Failure, Result, Success
@@ -1488,7 +1609,8 @@ class CreateActivityUseCase:
                     )
 
         # --- CREATE ---
-        now = datetime.now(timezone.utc).isoformat()
+        # Store timestamps as 'YYYY-MM-DD HH:MM:SS' (SQLite-safe, unambiguous UTC).
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         activity = Activity(
             id=None, title=title, type=act_type,
             frequency_config=frequency_config,
@@ -1512,11 +1634,16 @@ class CreateActivityUseCase:
             "endowed_progress_checkins",
         )
         count = int(ep_res.value) if isinstance(ep_res, Success) else 2
-        now = datetime.now(timezone.utc).isoformat()
-        for _ in range(count):
+        # Each endowed check-in is placed on a distinct past day (not today)
+        # to avoid polluting morning_completions or same-day duplicate logic.
+        for i in range(count):
+            days_ago = count - i  # e.g. count=2 → 2 days ago, 1 day ago
+            past_ts = (
+                datetime.now(timezone.utc) - timedelta(days=days_ago)
+            ).strftime("%Y-%m-%d 12:00:00")
             checkin = CheckIn(
                 id=None, activity_id=activity.id or 0,
-                completed_at=now, notes="endowed",
+                completed_at=past_ts, notes="endowed",
             )
             self._activity_repo.create_checkin(checkin)
 
@@ -1563,7 +1690,8 @@ class CompleteActivityUseCase:
         notes: str | None = None,
     ) -> Result[CompletionResult]:
         # --- CREATE CHECKIN ---
-        now = datetime.now(timezone.utc).isoformat()
+        # Store timestamps as 'YYYY-MM-DD HH:MM:SS' (SQLite-safe, unambiguous UTC).
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         checkin = CheckIn(
             id=None, activity_id=activity_id,
             completed_at=now, notes=notes,
@@ -1578,26 +1706,30 @@ class CompleteActivityUseCase:
             return Failure(streak_res.error)
 
         # --- CHECK BADGES ---
+        shield_was_used = streak_res.value.shield_used
         badge_res = self._gamification_repo.check_and_unlock_badges(
-            activity_id,
+            activity_id, shield_was_used=shield_was_used,
         )
         new_badge = None
-        if isinstance(badge_res, Success):
-            new_badge = badge_res.value
+        if isinstance(badge_res, Success) and badge_res.value:
+            # Show the first unlocked badge; others are already saved in DB
+            new_badge = badge_res.value[0]
 
         # --- CHECK CHEST ---
         chest_res = self._gamification_repo.should_show_chest()
         show_chest = isinstance(chest_res, Success) and chest_res.value
 
-        # --- NOTIFICATIONS ---
-        self._notification_service.send_completion_feedback()
-
-        return Success(CompletionResult(
+        result = CompletionResult(
             checkin=checkin_res.value,
             streak=streak_res.value.streak,
             show_chest=show_chest,
             new_badge=new_badge,
-        ))
+        )
+
+        # --- NOTIFICATIONS — only on full success ---
+        self._notification_service.send_completion_feedback()
+
+        return Success(result)
 
 
 --- FILE: ./domain/__init__.py ---
@@ -1640,6 +1772,8 @@ class ActivityLocalDatasource:
     def create(self, a: Activity) -> Activity:
         conn = self._db.get_connection()
         freq = a.frequency_config.to_json() if a.frequency_config else None
+        # Both inserts run in a single transaction — if the streak INSERT
+        # fails the activity INSERT is also rolled back, avoiding orphaned rows.
         cur = conn.execute(
             "INSERT INTO activities (title, type, frequency_config, "
             "deadline, implementation_intention, coping_plan, created_at) "
@@ -1647,7 +1781,6 @@ class ActivityLocalDatasource:
             (a.title, a.type.value, freq, a.deadline,
              a.implementation_intention, a.coping_plan, a.created_at),
         )
-        conn.commit()
         new_id = cur.lastrowid
         conn.execute(
             "INSERT INTO streaks (activity_id) VALUES (?)", (new_id,),
@@ -1702,7 +1835,7 @@ class ActivityLocalDatasource:
         activities = []
         for intention in intentions:
             a_row = conn.execute(
-                "SELECT * FROM activities WHERE id = ?", (intention.activity_id,)
+                "SELECT * FROM activities WHERE id = ? AND is_archived = 0", (intention.activity_id,)
             ).fetchone()
             if a_row:
                 activities.append(map_activity(a_row))
@@ -1743,6 +1876,20 @@ class ActivityLocalDatasource:
             id=cur.lastrowid, activity_id=c.activity_id,
             completed_at=c.completed_at, notes=c.notes,
         )
+
+    def get_checkins_since(self, activity_id: int, since_date: str) -> list[CheckIn]:
+        """Return all check-ins for *activity_id* on or after *since_date* (ISO date).
+
+        Timestamps are stored as 'YYYY-MM-DD HH:MM:SS' UTC, so DATE(completed_at)
+        extracts the date correctly without any timezone normalization needed.
+        """
+        conn = self._db.get_connection()
+        rows = conn.execute(
+            "SELECT * FROM checkins WHERE activity_id = ? "
+            "AND DATE(completed_at) >= ? ORDER BY completed_at DESC",
+            (activity_id, since_date),
+        ).fetchall()
+        return [map_checkin(r) for r in rows]
 
 
 --- FILE: ./data/datasources/chest_logic.py ---
@@ -1808,6 +1955,7 @@ def map_streak(row: dict) -> Streak:
         shields_available=row["shields_available"],
         weekly_completion_rate=row["weekly_completion_rate"],
         total_completions=row["total_completions"],
+        weekly_streak_count=row["weekly_streak_count"] if "weekly_streak_count" in row.keys() else 0,
     )
 
 
@@ -1863,11 +2011,12 @@ class GamificationLocalDatasource:
         conn.execute(
             "UPDATE streaks SET current_count=?, best_count=?, "
             "last_checkin_date=?, shields_available=?, "
-            "weekly_completion_rate=?, total_completions=? "
+            "weekly_completion_rate=?, total_completions=?, "
+            "weekly_streak_count=? "
             "WHERE activity_id=?",
             (s.current_count, s.best_count, s.last_checkin_date,
              s.shields_available, s.weekly_completion_rate,
-             s.total_completions, s.activity_id),
+             s.total_completions, s.weekly_streak_count, s.activity_id),
         )
         conn.commit()
         return self.get_streak(s.activity_id)
@@ -1895,35 +2044,59 @@ class GamificationLocalDatasource:
         ).fetchall()
         return [map_badge(r) for r in rows]
 
-    def check_and_unlock(self, activity_id: int) -> Optional[BadgeEntity]:
+    def check_and_unlock(
+        self, activity_id: int, shield_was_used: bool = False,
+    ) -> list[BadgeEntity]:
         streak = self.get_streak(activity_id)
         conn = self._db.get_connection()
         locked = conn.execute(
             "SELECT * FROM badges WHERE unlocked_at IS NULL",
         ).fetchall()
-        now = datetime.now(timezone.utc).isoformat()
-        for row in locked:
-            if self._badge_met(row, streak):
-                conn.execute(
-                    "UPDATE badges SET unlocked_at=? WHERE id=?",
-                    (now, row["id"]),
-                )
-                conn.commit()
-                updated = conn.execute(
-                    "SELECT * FROM badges WHERE id=?", (row["id"],),
-                ).fetchone()
-                return map_badge(updated)
-        return None
+        # Store timestamps as 'YYYY-MM-DD HH:MM:SS' (SQLite-safe, unambiguous UTC).
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        ids_to_unlock: list[int] = [
+            row["id"] for row in locked
+            if self._badge_met(row, streak, shield_was_used)
+        ]
+        if not ids_to_unlock:
+            return []
+        # Unlock all qualifying badges in a single transaction.
+        for bid in ids_to_unlock:
+            conn.execute(
+                "UPDATE badges SET unlocked_at=? WHERE id=?", (now, bid),
+            )
+        conn.commit()
+        rows = conn.execute(
+            f"SELECT * FROM badges WHERE id IN ({','.join('?' * len(ids_to_unlock))})",
+            ids_to_unlock,
+        ).fetchall()
+        return [map_badge(r) for r in rows]
 
-    @staticmethod
-    def _badge_met(row: dict, streak: Streak) -> bool:
+    def _badge_met(
+        self, row: dict, streak: Streak, shield_was_used: bool = False,
+    ) -> bool:
         ctype, cval = row["condition_type"], int(row["condition_value"])
         if ctype == "total_completions":
             return streak.total_completions >= cval
         if ctype == "streak":
             return streak.current_count >= cval
         if ctype == "shield_used":
-            return streak.shields_available < 1
+            # Badge se otorga cuando se ha usado un escudo en este check-in
+            return shield_was_used
+        if ctype == "morning_completions":
+            conn = self._db.get_connection()
+            # Timestamps are stored as 'YYYY-MM-DD HH:MM:SS' UTC — no
+            # datetime() wrapper needed; strftime extracts the hour directly.
+            count = conn.execute(
+                "SELECT COUNT(*) as c FROM checkins WHERE activity_id=? AND "
+                "CAST(strftime('%H', completed_at) AS INTEGER) < 9",
+                (streak.activity_id,)
+            ).fetchone()["c"]
+            return count >= cval
+        if ctype == "weekly_consistency":
+            # Count the current week towards the badge if its rate is >= 0.8
+            current_week_qualifies = 1 if streak.weekly_completion_rate >= 0.8 else 0
+            return (streak.weekly_streak_count + current_week_qualifies) >= cval
         return False
 
     # --- CHEST ---
@@ -2004,8 +2177,6 @@ data/repositories/gamification_repository_impl.py — Concrete GamificationRepos
 # --- IMPORTS ---
 from __future__ import annotations
 
-from typing import Optional
-
 from core.result import Failure, Result, Success
 from data.datasources.gamification_datasource import (
     GamificationLocalDatasource,
@@ -2047,10 +2218,10 @@ class GamificationRepositoryImpl(GamificationRepository):
             return Failure(f"Error al obtener insignias: {e}")
 
     def check_and_unlock_badges(
-        self, activity_id: int,
-    ) -> Result[Optional[BadgeEntity]]:
+        self, activity_id: int, shield_was_used: bool = False,
+    ) -> Result[list[BadgeEntity]]:
         try:
-            return Success(self._ds.check_and_unlock(activity_id))
+            return Success(self._ds.check_and_unlock(activity_id, shield_was_used))
         except Exception as e:
             return Failure(f"Error al verificar insignias: {e}")
 
@@ -2167,6 +2338,14 @@ class ActivityRepositoryImpl(ActivityRepository):
             return Success(self._ds.create_checkin(checkin))
         except Exception as e:
             return Failure(f"Error al crear check-in: {e}")
+
+    def get_checkins_since(
+        self, activity_id: int, since_date: str,
+    ) -> Result[list[CheckIn]]:
+        try:
+            return Success(self._ds.get_checkins_since(activity_id, since_date))
+        except Exception as e:
+            return Failure(f"Error al obtener check-ins desde fecha: {e}")
 
 
 --- FILE: ./data/repositories/__init__.py ---
@@ -2294,28 +2473,28 @@ if __name__ == "__main__":
 --- FILE: ./features/activity/create_activity_view.py ---
 # features/activity/create_activity_view.py — BottomSheet to create an activity.
 
-# --- IMPORTS ---
 from __future__ import annotations
-
-from typing import Callable
-
+from typing import Any, Callable
 import flet as ft
-
 from core.design.colors import COLOR_BASE
 from core.design.neu_button import NeuButton
 from core.design.neu_card import neu_card
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
-
-_TYPES = [("A", "Hábito diario"), ("B", "Horizonte"), ("C", "Semilla")]
+_TYPES = [
+    ("A", "Hábito"),
+    ("B", "Horizonte"),
+    ("C", "Semilla"),
+    ("D", "Hoy"),
+]
 
 
 class CreateActivityView(ft.BottomSheet):
     def __init__(
         self,
         tokens: DesignTokens,
-        on_created: Callable[[], None],
+        on_created: Callable[[], Any],
         page: ft.Page,
     ) -> None:
         self._tokens = tokens
@@ -2325,11 +2504,12 @@ class CreateActivityView(ft.BottomSheet):
         self._error = ft.Text("", color=tokens.color_accent_alert, size=13)
 
         self._title_field = ft.TextField(
-            hint_text=self._copy("activity_name_hint"),
+            hint_text=self._copy("activity_name_hint") or "Nombre de tu semilla...",
             hint_style=ft.TextStyle(color=tokens.color_text_sub),
             color=tokens.color_text_main,
             border=ft.InputBorder.NONE,
             text_size=16,
+            expand=True,
         )
         self._deadline_field = ft.TextField(
             hint_text="YYYY-MM-DD",
@@ -2337,10 +2517,10 @@ class CreateActivityView(ft.BottomSheet):
             color=tokens.color_text_main,
             border=ft.InputBorder.NONE,
             text_size=14,
-            visible=False,
+            expand=True,
         )
         self._intention_field = ft.TextField(
-            hint_text=self._copy("implementation_hint"),
+            hint_text=self._copy("implementation_hint") or "Intención de implementación...",
             hint_style=ft.TextStyle(color=tokens.color_text_sub),
             color=tokens.color_text_main,
             border=ft.InputBorder.NONE,
@@ -2348,19 +2528,166 @@ class CreateActivityView(ft.BottomSheet):
             multiline=True,
             min_lines=2,
             max_lines=3,
+            expand=True,
         )
-        self._type_row = self._build_type_row()
+        self._coping_field = ft.TextField(
+            hint_text=self._copy("coping_hint") or "Si me resulta difícil, puedo...",
+            hint_style=ft.TextStyle(color=tokens.color_text_sub),
+            color=tokens.color_text_main,
+            border=ft.InputBorder.NONE,
+            text_size=14,
+            multiline=True,
+            min_lines=2,
+            max_lines=3,
+            expand=True,
+        )
+
+        # Deadline card — visible solo para tipo B
+        self._deadline_card = neu_card(
+            content=ft.Column(
+                controls=[
+                    ft.Text(
+                        "Fecha límite",
+                        size=12,
+                        color=tokens.color_text_sub,
+                        weight=ft.FontWeight.W_500,
+                    ),
+                    self._deadline_field,
+                ],
+                spacing=4,
+            ),
+            tokens=self._tokens,
+            inset=True,
+            padding=14,
+        )
+        self._deadline_wrapper = ft.AnimatedSwitcher(
+            content=ft.Container(key="empty_deadline"),
+            transition=ft.AnimatedSwitcherTransition.FADE,
+            duration=200,
+        )
+
+        # Type selector
+        self._type_chips_row = ft.Row(
+            controls=self._build_chips(),
+            spacing=8,
+            scroll=ft.ScrollMode.AUTO,
+        )
+
+        # Confirm button — recreated on type change
+        self._confirm_btn = NeuButton(
+            label=self._confirm_label(),
+            on_click=self._handle_save,
+            tokens=self._tokens,
+        )
+        self._confirm_wrapper = ft.Container(
+            content=self._confirm_btn,
+            clip_behavior=ft.ClipBehavior.NONE,
+        )
+
+        # Main scrollable column
         self._column = ft.Column(
-            controls=self._build_controls(),
+            controls=[
+                # Header
+                ft.Row(
+                    controls=[
+                        make_text(
+                            self._copy("new_activity_title") or "Plantar nueva semilla",
+                            TextStyles.heading2,
+                        ),
+                        ft.Container(expand=True),
+                        ft.IconButton(
+                            icon=ft.Icons.CLOSE,
+                            icon_color=tokens.color_text_sub,
+                            on_click=self._handle_close,
+                            icon_size=20,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
+                ft.Container(height=4),
+                # Type selector
+                ft.Text(
+                    "Tipo de semilla",
+                    size=12,
+                    color=tokens.color_text_sub,
+                    weight=ft.FontWeight.W_500,
+                ),
+                self._type_chips_row,
+                ft.Container(height=4),
+                # Title field
+                neu_card(
+                    content=ft.Column(
+                        controls=[
+                            ft.Text(
+                                "Nombre",
+                                size=12,
+                                color=tokens.color_text_sub,
+                                weight=ft.FontWeight.W_500,
+                            ),
+                            self._title_field,
+                        ],
+                        spacing=4,
+                    ),
+                    tokens=self._tokens,
+                    inset=True,
+                    padding=14,
+                ),
+                # Deadline (animated)
+                self._deadline_wrapper,
+                # Intention field
+                neu_card(
+                    content=ft.Column(
+                        controls=[
+                            ft.Text(
+                                "Intención",
+                                size=12,
+                                color=tokens.color_text_sub,
+                                weight=ft.FontWeight.W_500,
+                            ),
+                            self._intention_field,
+                        ],
+                        spacing=4,
+                    ),
+                    tokens=self._tokens,
+                    inset=True,
+                    padding=14,
+                ),
+                # Coping field
+                neu_card(
+                    content=ft.Column(
+                        controls=[
+                            ft.Text(
+                                "Plan de afrontamiento",
+                                size=12,
+                                color=tokens.color_text_sub,
+                                weight=ft.FontWeight.W_500,
+                            ),
+                            self._coping_field,
+                        ],
+                        spacing=4,
+                    ),
+                    tokens=self._tokens,
+                    inset=True,
+                    padding=14,
+                ),
+                self._error,
+                ft.Container(height=8),
+                self._confirm_wrapper,
+                ft.Container(height=16),
+            ],
             scroll=ft.ScrollMode.AUTO,
             spacing=12,
         )
+
         r = float(tokens.radius_large)
+        # Asegurar que h sea un número (800 por defecto) para evitar TypeError
+        h = getattr(self._page, "height", 800) or 800
         super().__init__(
             use_safe_area=True,
             content=ft.Container(
+                height=max(500, h * 0.85),
                 bgcolor=COLOR_BASE,
-                padding=ft.padding.only(left=24, right=24, top=24, bottom=0),
+                padding=ft.Padding(left=24, right=24, top=20, bottom=0),
                 border_radius=ft.BorderRadius(r, r, 0, 0),
                 content=ft.SafeArea(
                     content=self._column,
@@ -2369,79 +2696,70 @@ class CreateActivityView(ft.BottomSheet):
             ),
         )
 
-    def _build_controls(self) -> list[ft.Control]:
-        controls: list[ft.Control] = [
-            make_text(self._copy("new_activity_title"), TextStyles.heading2),
-            ft.Container(height=4),
-            self._type_row,
-            ft.Container(height=4),
-            neu_card(
-                content=self._title_field, tokens=self._tokens,
-                inset=True, padding=14,
-            ),
-        ]
-        
-        if self._selected_type == "B":
-            self._deadline_field.visible = True
-            controls.append(
-                neu_card(
-                    content=self._deadline_field, tokens=self._tokens,
-                    inset=True, padding=14,
-                )
-            )
-        
-        controls.append(
-            neu_card(
-                content=self._intention_field, tokens=self._tokens,
-                inset=True, padding=14,
-            )
-        )
-
-        if self._error.value:
-            controls.append(self._error)
-
-        controls.append(ft.Container(height=8))
-        
-        controls.append(
-            ft.Container(
-                content=NeuButton(
-                    label=self._copy("confirm_habit"),
-                    on_click=self._handle_save,
-                    tokens=self._tokens,
-                ),
-                padding=ft.padding.only(left=6, right=6, top=12, bottom=12),
-                clip_behavior=ft.ClipBehavior.NONE,
-            )
-        )
-        return controls
-
-    def _build_type_row(self) -> ft.Row:
-        def make_chip(code: str, label: str) -> ft.Control:
+    # --- CHIPS ---
+    def _build_chips(self) -> list[ft.Control]:
+        chips: list[ft.Control] = []
+        for code, label in _TYPES:
             selected = code == self._selected_type
             bg = self._tokens.color_primary if selected else self._tokens.color_base
             fg = self._tokens.color_shadow_light if selected else self._tokens.color_text_main
             r = float(self._tokens.radius_small)
-            chip = ft.Container(
-                content=ft.Text(label, color=fg, size=13, weight=ft.FontWeight.W_500),
-                bgcolor=bg,
-                border_radius=ft.BorderRadius(r, r, r, r),
-                padding=ft.Padding(left=12, right=12, top=8, bottom=8),
-            )
-            return ft.GestureDetector(
-                content=chip,
+            chip = ft.GestureDetector(
+                content=ft.Container(
+                    content=ft.Text(
+                        label,
+                        color=fg,
+                        size=13,
+                        weight=ft.FontWeight.W_500,
+                    ),
+                    bgcolor=bg,
+                    border_radius=ft.BorderRadius(r, r, r, r),
+                    padding=ft.Padding(left=14, right=14, top=8, bottom=8),
+                    shadow=[
+                        ft.BoxShadow(
+                            offset=ft.Offset(2, 2),
+                            blur_radius=4,
+                            color="#33B8BDB9",
+                        )
+                    ] if selected else None,
+                ),
                 on_tap=lambda e, c=code: self._select_type(c),
             )
-        return ft.Row(
-            controls=[make_chip(c, l) for c, l in _TYPES],
-            spacing=8,
-        )
+            chips.append(chip)
+        return chips
 
     def _select_type(self, code: str) -> None:
         self._selected_type = code
-        self._type_row.controls = self._build_type_row().controls
-        self._column.controls = self._build_controls()
+        self._type_chips_row.controls = self._build_chips()
+        if code == "B":
+            self._deadline_wrapper.content = self._deadline_card
+        else:
+            self._deadline_wrapper.content = ft.Container(key="empty_deadline")
+        self._confirm_btn = NeuButton(
+            label=self._confirm_label(),
+            on_click=self._handle_save,
+            tokens=self._tokens,
+        )
+        self._confirm_wrapper.content = self._confirm_btn
         try:
             self._column.update()
+        except Exception:
+            pass
+
+    def _confirm_label(self) -> str:
+        labels = {
+            "A": self._copy("confirm_a") or "Plantar hábito",
+            "B": self._copy("confirm_b") or "Establecer meta",
+            "C": self._copy("confirm_c") or "Guardar semilla",
+            "D": self._copy("confirm_d") or "Cultivar hoy",
+        }
+        return labels.get(self._selected_type, "Guardar")
+
+    # --- ACTIONS ---
+    def _handle_close(self, e: object) -> None:
+        self.open = False
+        try:
+            self._page.update()
         except Exception:
             pass
 
@@ -2449,12 +2767,25 @@ class CreateActivityView(ft.BottomSheet):
         title = (self._title_field.value or "").strip()
         if not title:
             self._error.value = "El nombre no puede estar vacío"
-            self._column.controls = self._build_controls()
-            try: self._column.update()
-            except Exception: pass
+            try:
+                self._column.update()
+            except Exception:
+                pass
             return
         deadline = (self._deadline_field.value or "").strip() or None
         intention = (self._intention_field.value or "").strip() or None
+        coping = (self._coping_field.value or "").strip() or None
+
+        if deadline and self._selected_type == "B":
+            import re
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", deadline):
+                self._error.value = "Fecha inválida. Usa el formato YYYY-MM-DD"
+                try:
+                    self._column.update()
+                except Exception:
+                    pass
+                return
+
         try:
             from core.container import AppContainer
             res = AppContainer.instance().create_activity_uc.execute(
@@ -2462,22 +2793,28 @@ class CreateActivityView(ft.BottomSheet):
                 activity_type=self._selected_type,
                 deadline=deadline,
                 implementation_intention=intention,
+                coping_plan=coping,
             )
             if res.is_failure():
                 self._error.value = res.error or "Error"
-                self._column.controls = self._build_controls()
-                try: self._column.update()
-                except Exception: pass
+                try:
+                    self._column.update()
+                except Exception:
+                    pass
                 return
         except Exception as exc:
             self._error.value = str(exc)
-            self._column.controls = self._build_controls()
-            try: self._column.update()
-            except Exception: pass
+            try:
+                self._column.update()
+            except Exception:
+                pass
             return
+
         self.open = False
-        try: self._page.update()
-        except Exception: pass
+        try:
+            self._page.update()
+        except Exception:
+            pass
         self._on_created()
 
     @staticmethod
@@ -2492,22 +2829,438 @@ class CreateActivityView(ft.BottomSheet):
             return key
 
 
+--- FILE: ./features/activity/activity_detail_view.py ---
+# features/activity/activity_detail_view.py — Detail/edit sheet for an activity.
+
+from __future__ import annotations
+
+from typing import Callable, Any
+
+import flet as ft
+
+from core.design.colors import COLOR_BASE
+from core.design.neu_button import NeuButton
+from core.design.neu_card import neu_card
+from core.design.tokens import DesignTokens
+from core.design.typography import TextStyles, make_text
+from domain.entities.activity import Activity
+
+
+class ActivityDetailView(ft.BottomSheet):
+    """
+    Bottom sheet con el detalle completo de un hábito/actividad.
+    Muestra: título, estadísticas de racha, historial de check-ins,
+    intención de implementación, plan de afrontamiento, y botones
+    de acción (completar hoy / archivar).
+    """
+
+    def __init__(
+        self,
+        activity: Activity,
+        tokens: DesignTokens,
+        page: ft.Page,
+        on_complete: Callable[[Activity], None],
+        on_archived: Callable[[], Any],
+        on_dismiss: Callable[[], Any],
+    ) -> None:
+        self._activity = activity
+        self._tokens = tokens
+        self._page = page
+        self._on_complete = on_complete
+        self._on_archived = on_archived
+        self._on_dismiss = on_dismiss
+
+        t = tokens
+        r = float(t.radius_large)
+
+        streak = self._load_streak()
+        checkins = self._load_checkins()
+
+        # ── HEADER ──────────────────────────────────────────────
+        header = ft.Row(
+            controls=[
+                ft.Column(
+                    controls=[
+                        ft.Text(
+                            activity.title,
+                            size=22,
+                            weight=ft.FontWeight.BOLD,
+                            color=t.color_text_main,
+                        ),
+                        ft.Text(
+                            self._type_label(activity.type.value),
+                            size=13,
+                            color=t.color_text_sub,
+                        ),
+                    ],
+                    spacing=2,
+                    expand=True,
+                ),
+                ft.IconButton(
+                    icon=ft.Icons.CLOSE,
+                    icon_color=t.color_text_sub,
+                    on_click=self._handle_close,
+                    icon_size=20,
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        )
+
+        # ── STREAK STATS ────────────────────────────────────────
+        stats_card = neu_card(
+            content=ft.Row(
+                controls=[
+                    self._stat_col("🔥", str(streak["current"]), "Racha"),
+                    self._divider(),
+                    self._stat_col("🏆", str(streak["best"]), "Mejor"),
+                    self._divider(),
+                    self._stat_col("✅", str(streak["total"]), "Total"),
+                    self._divider(),
+                    self._stat_col("⬡", str(streak["shields"]), "Escudos"),
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_AROUND,
+            ),
+            tokens=t,
+            padding=16,
+            radius_key="standard",
+        )
+
+        # ── WEEKLY PROGRESS ─────────────────────────────────────
+        weekly_rate = streak["weekly_rate"]
+        weekly_card = neu_card(
+            content=ft.Column(
+                controls=[
+                    ft.Row(
+                        controls=[
+                            ft.Text(
+                                "Progreso semanal",
+                                size=13,
+                                color=t.color_text_sub,
+                                weight=ft.FontWeight.W_500,
+                            ),
+                            ft.Container(expand=True),
+                            ft.Text(
+                                f"{int(weekly_rate * 100)}%",
+                                size=13,
+                                color=t.color_primary,
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                        ],
+                    ),
+                    ft.ProgressBar(
+                        value=weekly_rate,
+                        color=t.color_secondary,
+                        bgcolor=t.color_shadow_dark + "44",
+                        height=8,
+                        border_radius=ft.BorderRadius(4, 4, 4, 4),
+                    ),
+                ],
+                spacing=8,
+            ),
+            tokens=t,
+            padding=16,
+        )
+
+        # ── IMPLEMENTATION INTENTION ────────────────────────────
+        intention_controls: list[ft.Control] = []
+        if activity.implementation_intention:
+            intention_controls.append(
+                neu_card(
+                    content=ft.Column(
+                        controls=[
+                            ft.Text(
+                                "🎯 Intención",
+                                size=12,
+                                color=t.color_text_sub,
+                                weight=ft.FontWeight.W_500,
+                            ),
+                            ft.Text(
+                                activity.implementation_intention,
+                                size=15,
+                                color=t.color_text_main,
+                            ),
+                        ],
+                        spacing=6,
+                    ),
+                    tokens=t,
+                    padding=16,
+                )
+            )
+        if activity.coping_plan:
+            intention_controls.append(
+                neu_card(
+                    content=ft.Column(
+                        controls=[
+                            ft.Text(
+                                "🛡️ Plan de afrontamiento",
+                                size=12,
+                                color=t.color_text_sub,
+                                weight=ft.FontWeight.W_500,
+                            ),
+                            ft.Text(
+                                activity.coping_plan,
+                                size=15,
+                                color=t.color_text_main,
+                            ),
+                        ],
+                        spacing=6,
+                    ),
+                    tokens=t,
+                    padding=16,
+                )
+            )
+
+        # ── DEADLINE ────────────────────────────────────────────
+        deadline_controls: list[ft.Control] = []
+        if activity.deadline:
+            from datetime import date as _date
+            try:
+                days = (_date.fromisoformat(activity.deadline[:10]) - _date.today()).days
+                if days < 0:
+                    dl_text = "Horizonte superado"
+                    dl_color = t.color_accent_alert
+                elif days == 0:
+                    dl_text = "¡Hoy es el día!"
+                    dl_color = t.color_accent_alert
+                else:
+                    dl_text = f"Horizonte en {days} días ({activity.deadline[:10]})"
+                    dl_color = t.color_text_sub
+            except ValueError:
+                dl_text = activity.deadline
+                dl_color = t.color_text_sub
+
+            deadline_controls.append(
+                ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.CALENDAR_TODAY, color=dl_color, size=14),
+                        ft.Text(dl_text, size=13, color=dl_color),
+                    ],
+                    spacing=6,
+                )
+            )
+
+        # ── RECENT CHECK-INS ────────────────────────────────────
+        checkin_controls: list[ft.Control] = []
+        if checkins:
+            checkin_controls.append(
+                ft.Text(
+                    "Últimos registros",
+                    size=13,
+                    color=t.color_text_sub,
+                    weight=ft.FontWeight.W_500,
+                )
+            )
+            for ci in checkins[:5]:
+                date_str = ci[:10] if len(ci) >= 10 else ci
+                time_str = ci[11:16] if len(ci) >= 16 else ""
+                checkin_controls.append(
+                    ft.Row(
+                        controls=[
+                            ft.Icon(
+                                ft.Icons.CHECK_CIRCLE,
+                                color=t.color_secondary,
+                                size=14,
+                            ),
+                            ft.Text(
+                                f"{date_str}  {time_str}",
+                                size=13,
+                                color=t.color_text_main,
+                            ),
+                        ],
+                        spacing=6,
+                    )
+                )
+
+        # ── ACTION BUTTONS ───────────────────────────────────────
+        already_done_today = self._completed_today()
+
+        complete_btn = NeuButton(
+            label="✅  Ya completada hoy" if already_done_today else "✅  Marcar como completada",
+            on_click=self._handle_complete,
+            tokens=t,
+            disabled=already_done_today,
+        )
+
+        archive_btn = ft.TextButton(
+            content=ft.Text("Archivar semilla", color=t.color_accent_alert),
+            on_click=self._handle_archive,
+        )
+
+        # ── LAYOUT ──────────────────────────────────────────────
+        sections: list[ft.Control] = [
+            header,
+            ft.Divider(color=t.color_shadow_dark + "55", height=1),
+            stats_card,
+            weekly_card,
+            *deadline_controls,
+            *intention_controls,
+            *([neu_card(
+                content=ft.Column(controls=checkin_controls, spacing=8),
+                tokens=t,
+                padding=16,
+            )] if checkin_controls else []),
+            ft.Container(height=8),
+            complete_btn,
+            ft.Container(
+                content=archive_btn,
+                alignment=ft.Alignment(0, 0),
+            ),
+            ft.Container(height=16),
+        ]
+
+        # Asegurar que h sea un número (800 por defecto) para evitar TypeError
+        h = getattr(self._page, "height", 800) or 800
+        content = ft.Container(
+            height=max(500, h * 0.85),
+            bgcolor=COLOR_BASE,
+            padding=ft.Padding(left=24, right=24, top=20, bottom=0),
+            border_radius=ft.BorderRadius(r, r, 0, 0),
+            content=ft.SafeArea(
+                content=ft.Column(
+                    controls=sections,
+                    scroll=ft.ScrollMode.AUTO,
+                    spacing=14,
+                ),
+                bottom=True,
+            ),
+        )
+
+        super().__init__(
+            use_safe_area=True,
+            content=content,
+            on_dismiss=lambda e: on_dismiss(),
+        )
+
+    # ── HELPERS ─────────────────────────────────────────────────
+
+    def _stat_col(self, emoji: str, value: str, label: str) -> ft.Control:
+        return ft.Column(
+            controls=[
+                ft.Text(emoji, size=20),
+                ft.Text(
+                    value,
+                    size=18,
+                    weight=ft.FontWeight.BOLD,
+                    color=self._tokens.color_primary,
+                ),
+                ft.Text(label, size=11, color=self._tokens.color_text_sub),
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=2,
+        )
+
+    def _divider(self) -> ft.Control:
+        return ft.VerticalDivider(
+            color=self._tokens.color_shadow_dark + "55",
+            width=1,
+        )
+
+    def _handle_close(self, e: object) -> None:
+        self.open = False
+        try:
+            self._page.update()
+        except Exception:
+            pass
+        self._on_dismiss()
+
+    def _handle_complete(self, e: object) -> None:
+        self.open = False
+        try:
+            self._page.update()
+        except Exception:
+            pass
+        self._on_complete(self._activity)
+
+    def _handle_archive(self, e: object) -> None:
+        try:
+            from core.container import AppContainer
+            AppContainer.instance().activity_repo.archive_activity(
+                self._activity.id or 0
+            )
+        except Exception:
+            pass
+        self.open = False
+        try:
+            self._page.update()
+        except Exception:
+            pass
+        self._on_archived()
+
+    def _completed_today(self) -> bool:
+        """Devuelve True si ya hay un check-in hoy para esta actividad."""
+        try:
+            from datetime import date
+            from core.database.db_helper import DBHelper
+            today = date.today().isoformat()
+            row = DBHelper.instance().get_connection().execute(
+                "SELECT COUNT(*) as c FROM checkins "
+                "WHERE activity_id=? AND DATE(completed_at)=?",
+                (self._activity.id or 0, today),
+            ).fetchone()
+            return int(row["c"]) > 0
+        except Exception:
+            return False
+
+    def _load_streak(self) -> dict:
+        try:
+            from core.database.db_helper import DBHelper
+            row = DBHelper.instance().get_connection().execute(
+                "SELECT current_count, best_count, total_completions, "
+                "shields_available, weekly_completion_rate "
+                "FROM streaks WHERE activity_id=?",
+                (self._activity.id or 0,),
+            ).fetchone()
+            if row:
+                return {
+                    "current": row["current_count"],
+                    "best": row["best_count"],
+                    "total": row["total_completions"],
+                    "shields": row["shields_available"],
+                    "weekly_rate": float(row["weekly_completion_rate"] or 0),
+                }
+        except Exception:
+            pass
+        return {"current": 0, "best": 0, "total": 0, "shields": 1, "weekly_rate": 0.0}
+
+    def _load_checkins(self) -> list[str]:
+        """Devuelve lista de timestamps de los últimos check-ins."""
+        try:
+            from core.database.db_helper import DBHelper
+            rows = DBHelper.instance().get_connection().execute(
+                "SELECT completed_at FROM checkins "
+                "WHERE activity_id=? ORDER BY completed_at DESC LIMIT 10",
+                (self._activity.id or 0,),
+            ).fetchall()
+            return [r["completed_at"] for r in rows]
+        except Exception:
+            return []
+
+    @staticmethod
+    def _type_label(type_value: str) -> str:
+        return {
+            "A": "🌱 Hábito diario",
+            "B": "🎯 Horizonte",
+            "C": "💤 Semilla en espera",
+            "D": "⭐ Enfoque de hoy",
+        }.get(type_value, "Actividad")
+
+
 --- FILE: ./features/activity/__init__.py ---
 
 
 --- FILE: ./features/gamification/streak_indicator.py ---
 # features/gamification/streak_indicator.py — Compact streak display widget.
 
-# --- IMPORTS ---
 from __future__ import annotations
-
 import flet as ft
-
 from core.design.tokens import DesignTokens
 
 
 class StreakIndicator(ft.Container):
-    """Row: 🔥 N | shield ⬡ | weekly ring."""
+    """
+    Muestra: 🔥 N  ⬡×N  [ring]
+    Todo en una Row con fuentes reducidas y tight=True para no desbordar el chip.
+    """
 
     def __init__(
         self,
@@ -2515,27 +3268,40 @@ class StreakIndicator(ft.Container):
         tokens: DesignTokens,
     ) -> None:
         streak = self._load(activity_id)
-        controls: list[ft.Control] = [
-            ft.Text("🔥", size=18),
-            ft.Text(
-                str(streak["current"]),
-                size=22, weight=ft.FontWeight.BOLD,
-                color=tokens.color_primary,
-            ),
-            ft.Container(width=8),
-            ft.Text("⬡", size=16, color=tokens.color_text_sub),
-            ft.Text(
-                f"×{streak['shields']}",
-                size=14, color=tokens.color_text_sub,
-            ),
-            ft.Container(width=8),
-            ft.ProgressRing(
-                value=streak["weekly_rate"],
-                width=26, height=26, stroke_width=3,
-            ),
-        ]
+        t = tokens
+
+        fire = ft.Text("🔥", size=14)
+        count = ft.Text(
+            str(streak["current"]),
+            size=16,
+            weight=ft.FontWeight.BOLD,
+            color=t.color_primary,
+        )
+        shield_icon = ft.Text("⬡", size=12, color=t.color_text_sub)
+        shield_count = ft.Text(
+            f"×{streak['shields']}",
+            size=12,
+            color=t.color_text_sub,
+        )
+        ring = ft.ProgressRing(
+            value=streak["weekly_rate"],
+            width=18,
+            height=18,
+            stroke_width=2,
+            color=t.color_secondary,
+            bgcolor=t.color_shadow_dark + "44",
+        )
+
+        row = ft.Row(
+            controls=[fire, count, shield_icon, shield_count, ring],
+            spacing=3,
+            tight=True,
+        )
+
         super().__init__(
-            content=ft.Row(controls=controls, spacing=4),
+            content=row,
+            padding=ft.Padding(left=0, right=0, top=2, bottom=0),
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
         )
 
     @staticmethod
@@ -2555,7 +3321,7 @@ class StreakIndicator(ft.Container):
                 }
         except Exception:
             pass
-        return {"current": 0, "shields": 0, "weekly_rate": 0.0}
+        return {"current": 0, "shields": 1, "weekly_rate": 0.0}
 
 
 --- FILE: ./features/gamification/chest_widget.py ---
@@ -2564,7 +3330,7 @@ class StreakIndicator(ft.Container):
 # --- IMPORTS ---
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 import flet as ft
 
@@ -2580,7 +3346,7 @@ class ChestWidget(ft.AlertDialog):
     def __init__(
         self,
         tokens: DesignTokens,
-        on_open: Callable[[], None],
+        on_open: Callable[[], Any],
         page: ft.Page,
     ) -> None:
         self._tokens = tokens
@@ -2588,7 +3354,7 @@ class ChestWidget(ft.AlertDialog):
         self._reward_text = ft.Text("", size=15, color=tokens.color_text_main)
         self._chest_icon = ft.Container(
             content=ft.Text("🪴", size=64),
-            animate_scale=ft.animation.Animation(800, ft.AnimationCurve.ELASTIC_OUT),  # type: ignore
+            animate_scale=ft.Animation(800, ft.AnimationCurve.ELASTIC_OUT),  # type: ignore
             scale=0.8,
             alignment=ft.Alignment(0, 0),
         )
@@ -2614,13 +3380,13 @@ class ChestWidget(ft.AlertDialog):
             bgcolor=tokens.color_base,
         )
 
-    def _open_chest(self, callback: Callable[[], None]) -> None:
+    def _open_chest(self, callback: Callable[[], Any]) -> None:
         self._chest_icon.scale = 1.2
         try: self._chest_icon.update()
         except Exception: pass
-        import threading, time
-        def animate() -> None:
-            time.sleep(0.4)
+        async def animate() -> None:
+            import asyncio
+            await asyncio.sleep(0.4)
             self._chest_icon.content = ft.Text("🌟", size=64)
             self._chest_icon.scale = 1.0
             reward = self._pick_reward()
@@ -2629,12 +3395,12 @@ class ChestWidget(ft.AlertDialog):
                 self._chest_icon.update()
                 self._reward_text.update()
             except Exception: pass
-            time.sleep(1.0)
+            await asyncio.sleep(1.0)
             self.open = False
             try: self._page.update()
             except Exception: pass
             callback()
-        threading.Thread(target=animate, daemon=True).start()
+        self._page.run_task(animate)
 
     @staticmethod
     def _pick_reward() -> str:
@@ -2642,7 +3408,7 @@ class ChestWidget(ft.AlertDialog):
             from core.database.db_helper import DBHelper
             conn = DBHelper.instance().get_connection()
             row = conn.execute(
-                "SELECT value FROM ui_copy WHERE key='chest_reward' "
+                "SELECT value FROM ui_copy WHERE key LIKE 'chest_reward%' "
                 "ORDER BY RANDOM() LIMIT 1",
             ).fetchone()
             return row["value"] if row else "¡Un pequeño regalo para ti! 🌱"
@@ -2715,7 +3481,7 @@ class BadgeCelebration(ft.Container):
         )
         super().__init__(
             content=card,
-            bgcolor=ft.Colors.with_opacity(0.7, "#000000"),
+            bgcolor="#B3000000",  # ~70% opaque black (#AARRGGBB)
             alignment=ft.Alignment(0, 0),
             expand=True,
             visible=False,
@@ -2736,17 +3502,24 @@ class BadgeCelebration(ft.Container):
             self.update()
         except Exception:
             pass
-        import threading, time
-        def hide() -> None:
-            time.sleep(3.0)
+        async def hide() -> None:
+            import asyncio
+            await asyncio.sleep(3.0)
             self.opacity = 0.0
             try: self.update()
             except Exception: pass
-            time.sleep(0.4)
+            await asyncio.sleep(0.4)
             self.visible = False
             try: self.update()
             except Exception: pass
-        threading.Thread(target=hide, daemon=True).start()
+            page = self._page
+            if page is None:
+                return
+            if self in page.overlay:
+                page.overlay.remove(self)
+                try: page.update()
+                except Exception: pass
+        self._page.run_task(hide)
 
 
 --- FILE: ./features/gamification/__init__.py ---
@@ -3142,7 +3915,7 @@ class BacklogSection(ft.Column):
         self._list = ft.Container(
             content=ft.Column(controls=[], spacing=8),
             height=0,
-            animate=ft.animation.Animation(300, ft.AnimationCurve.EASE_IN_OUT),  # type: ignore
+            animate_size=ft.Animation(300, ft.AnimationCurve.EASE_IN_OUT),  # type: ignore
         )
         title_row = ft.GestureDetector(
             content=ft.Row(
@@ -3157,7 +3930,7 @@ class BacklogSection(ft.Column):
 
     def _toggle(self, e: ft.TapEvent) -> None:
         self._expanded = not self._expanded
-        self._list.height = len(self._activities) * 90 if self._expanded else 0
+        self._list.height = None if self._expanded else 0
         if self._expanded:
             self._list.content = ft.Column(
                 controls=[self._backlog_card(a) for a in self._activities],
@@ -3187,7 +3960,7 @@ class BacklogSection(ft.Column):
         )
         return ft.GestureDetector(
             content=card,
-            on_long_press=lambda e, a=activity: self._on_elevate(a),
+            on_tap=lambda e, a=activity: self._on_elevate(a),
         )
 
 
@@ -3197,7 +3970,7 @@ class BacklogSection(ft.Column):
 # --- IMPORTS ---
 from __future__ import annotations
 
-import threading
+
 
 import flet as ft
 
@@ -3219,8 +3992,8 @@ class PlantGarden(ft.Container):
     def __init__(self, tokens: DesignTokens) -> None:
         self._tokens = tokens
         self._plant_container = ft.Container(
-            content=get_plant_stage_asset(0),
-            animate_scale=ft.animation.Animation(400, ft.AnimationCurve.BOUNCE_OUT),  # type: ignore
+            content=None,
+            animate_scale=ft.Animation(400, ft.AnimationCurve.BOUNCE_OUT),  # type: ignore
             scale=1.0,
             alignment=ft.Alignment(0, 0),
         )
@@ -3261,11 +4034,12 @@ class PlantGarden(ft.Container):
     def celebrate(self) -> None:
         from core.design.animations import pulse_scale, reset_scale
         pulse_scale(self._plant_container, target=1.25)
-        import threading, time
-        def _reset():
-            time.sleep(0.5)
+        async def _reset():
+            import asyncio
+            await asyncio.sleep(0.5)
             reset_scale(self._plant_container)
-        threading.Thread(target=_reset, daemon=True).start()
+        if self.page:
+            self.page.run_task(_reset)  # type: ignore
 
 
 --- FILE: ./features/home/widgets/ritual_sheet.py ---
@@ -3373,10 +4147,13 @@ class RitualSheet(ft.BottomSheet):
     def _load_candidates(self) -> list[Activity]:
         try:
             from core.container import AppContainer
-            res = AppContainer.instance().activity_repo.get_activities_by_type(
-                ActivityType.DAILY,
-            )
-            return res.value or []
+            repo = AppContainer.instance().activity_repo
+            res_daily = repo.get_activities_by_type(ActivityType.DAILY)
+            res_deadline = repo.get_activities_by_type(ActivityType.DEADLINE)
+            
+            daily = res_daily.value or []
+            deadline = res_deadline.value or []
+            return daily + deadline
         except Exception:
             return []
 
@@ -3405,13 +4182,9 @@ class RitualSheet(ft.BottomSheet):
 --- FILE: ./features/home/widgets/habits_section.py ---
 # features/home/widgets/habits_section.py — Section [A]: daily habits.
 
-# --- IMPORTS ---
 from __future__ import annotations
-
 from typing import Callable
-
 import flet as ft
-
 from core.design.neu_card import neu_card
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
@@ -3428,41 +4201,64 @@ class HabitsSection(ft.Column):
     ) -> None:
         super().__init__(spacing=12)
         self._tokens = tokens
+
+        if not activities:
+            empty = make_text(
+                "Sin hábitos aún — crea tu primera semilla 🌱",
+                TextStyles.caption,
+            )
+            self.controls = [make_text(section_title, TextStyles.heading2), empty]
+            return
+
         chips: list[ft.Control] = [
             self._habit_chip(a, on_select) for a in activities
         ]
-        row: ft.Control = (
-            ft.Row(controls=chips, scroll=ft.ScrollMode.AUTO, spacing=12)
-            if activities else
-            make_text("Sin hábitos aún — crea tu primera semilla", TextStyles.caption)
+        row = ft.Row(
+            controls=chips,
+            scroll=ft.ScrollMode.AUTO,
+            spacing=12,
         )
         self.controls = [make_text(section_title, TextStyles.heading2), row]
 
     def _habit_chip(
-        self, activity: Activity, on_select: Callable[[Activity], None],
+        self,
+        activity: Activity,
+        on_select: Callable[[Activity], None],
     ) -> ft.Control:
         from features.gamification.streak_indicator import StreakIndicator
+
+        indicator = StreakIndicator(
+            activity_id=activity.id or 0,
+            tokens=self._tokens,
+        )
+
+        # Título truncado a 2 líneas máximo
+        title = ft.Text(
+            activity.title,
+            size=13,
+            color=self._tokens.color_text_main,
+            text_align=ft.TextAlign.CENTER,
+            max_lines=2,
+            overflow=ft.TextOverflow.ELLIPSIS,
+            no_wrap=False,
+        )
+
+        card_content = ft.Column(
+            controls=[title, indicator],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=6,
+            tight=True,
+        )
+
         card = neu_card(
-            content=ft.Column(
-                controls=[
-                    ft.Text(
-                        activity.title,
-                        size=12,
-                        color=self._tokens.color_text_main,
-                        text_align=ft.TextAlign.CENTER,
-                        no_wrap=False,
-                        overflow=ft.TextOverflow.VISIBLE,
-                    ),
-                    StreakIndicator(activity_id=activity.id or 0, tokens=self._tokens),
-                ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=6,
-            ),
+            content=card_content,
             tokens=self._tokens,
             radius_key="large",
             padding=12,
-            width=90,
+            width=100,   # Ancho suficiente para que quepa el indicador
+            height=90,   # Altura fija para consistencia visual
         )
+
         return ft.GestureDetector(
             content=card,
             on_tap=lambda e, a=activity: on_select(a),
@@ -3472,14 +4268,11 @@ class HabitsSection(ft.Column):
 --- FILE: ./features/home/widgets/today_section.py ---
 # features/home/widgets/today_section.py — Section [D]: today's focus activities.
 
-# --- IMPORTS ---
 from __future__ import annotations
-
 from typing import Callable
 
 import flet as ft
 
-from core.asset_helper import get_sound_asset
 from core.design.neu_card import neu_card
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
@@ -3487,6 +4280,12 @@ from domain.entities.activity import Activity
 
 
 class TodaySection(ft.Column):
+    """
+    Muestra las actividades de hoy.
+    El TAP abre el detalle (on_complete callback); la racha sube
+    desde ActivityDetailView, NO automáticamente al pulsar aquí.
+    """
+
     def __init__(
         self,
         tokens: DesignTokens,
@@ -3497,45 +4296,75 @@ class TodaySection(ft.Column):
         super().__init__(spacing=12)
         self._tokens = tokens
         self._on_complete = on_complete
-        self._sound = get_sound_asset("complete")
+
         cards: list[ft.Control] = [
             self._activity_card(a) for a in activities[:3]
         ]
         self.controls = [make_text(section_title, TextStyles.heading2)] + cards
         if not activities:
             self.controls.append(
-                make_text("Elige hasta 3 semillas para hoy", TextStyles.caption),
+                make_text(
+                    "Elige hasta 3 semillas para hoy 🌱",
+                    TextStyles.caption,
+                )
             )
 
     def _activity_card(self, activity: Activity) -> ft.Control:
+        already_done = self._completed_today(activity.id or 0)
+
+        done_icon = ft.Icon(
+            ft.Icons.CHECK_CIRCLE if already_done else ft.Icons.CHECK_CIRCLE_OUTLINE,
+            color=(
+                self._tokens.color_secondary if already_done
+                else self._tokens.color_text_sub
+            ),
+            size=22,
+        )
+
         card = neu_card(
             content=ft.Row(
                 controls=[
-                    ft.Icon(ft.Icons.PARK_OUTLINED, color=self._tokens.color_primary, size=20),
+                    ft.Icon(
+                        ft.Icons.PARK_OUTLINED,
+                        color=self._tokens.color_primary,
+                        size=20,
+                    ),
                     ft.Text(
                         activity.title,
                         color=self._tokens.color_text_main,
                         size=16,
                         expand=True,
+                        overflow=ft.TextOverflow.ELLIPSIS,
+                        max_lines=1,
                     ),
-                    ft.Icon(
-                        ft.Icons.CHECK_CIRCLE_OUTLINE,
-                        color=self._tokens.color_secondary, size=22,
-                    ),
+                    done_icon,
                 ],
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             ),
             tokens=self._tokens,
             padding=16,
         )
+
         return ft.GestureDetector(
             content=card,
-            on_tap=lambda e, a=activity: self._handle_complete(e, a),
+            # Tap → abre detalle; el detalle tiene el botón de completar
+            on_tap=lambda e, a=activity: self._on_complete(a),
         )
 
-    def _handle_complete(self, e, activity: Activity) -> None:
-        self._sound()
-        self._on_complete(activity)
+    @staticmethod
+    def _completed_today(activity_id: int) -> bool:
+        try:
+            from datetime import date
+            from core.database.db_helper import DBHelper
+            today = date.today().isoformat()
+            row = DBHelper.instance().get_connection().execute(
+                "SELECT COUNT(*) as c FROM checkins "
+                "WHERE activity_id=? AND DATE(completed_at)=?",
+                (activity_id, today),
+            ).fetchone()
+            return int(row["c"]) > 0
+        except Exception:
+            return False
 
 
 --- FILE: ./features/home/widgets/__init__.py ---
@@ -3671,7 +4500,7 @@ class DeadlinesSection(ft.Column):
                         color=self._tokens.color_text_main,
                         size=16,
                         weight=ft.FontWeight.W_500,
-                        overflow=ft.TextOverflow.VISIBLE,
+                        overflow=ft.TextOverflow.ELLIPSIS,
                     ),
                     ft.Row(
                         controls=[
@@ -3691,10 +4520,7 @@ class DeadlinesSection(ft.Column):
 --- FILE: ./features/home/home_view.py ---
 # features/home/home_view.py — Main home screen.
 
-# --- IMPORTS ---
 from __future__ import annotations
-
-import threading
 from typing import Optional
 
 import flet as ft
@@ -3715,16 +4541,20 @@ class HomeView(ft.Column):
             ft.Container(
                 content=self._body,
                 bgcolor=COLOR_BASE,
-                padding=ft.Padding(left=20, right=20, top=24, bottom=24),
+                padding=ft.Padding(left=20, right=20, top=24, bottom=80),
                 expand=True,
             )
         ]
+        # FAB para crear nueva actividad
         page.floating_action_button = ft.FloatingActionButton(
             icon=ft.Icons.ADD,
             bgcolor=self._tokens.color_primary,
+            foreground_color=self._tokens.color_shadow_light,
             on_click=self._open_create,
+            tooltip="Nueva semilla",
         )
-        threading.Thread(target=self._load_data, daemon=True).start()
+        page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
+        self._page.run_task(self._load_data)
 
     def _load_tokens(self) -> DesignTokens:
         try:
@@ -3733,7 +4563,7 @@ class HomeView(ft.Column):
         except Exception:
             return DesignTokens.defaults()
 
-    def _load_data(self) -> None:
+    async def _load_data(self) -> None:
         try:
             from core.container import AppContainer
             c = AppContainer.instance()
@@ -3748,13 +4578,15 @@ class HomeView(ft.Column):
             bl_res = c.activity_repo.get_activities_by_type(ActivityType.BACKLOG)
 
             self._build_ui(
-                today=activities, fresh=fresh,
+                today=activities,
+                fresh=fresh,
                 daily=daily_res.value or [],
                 deadlines=dl_res.value or [],
                 backlog=bl_res.value or [],
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("HomeView load error: %s", exc)
 
     def _build_ui(
         self,
@@ -3772,28 +4604,66 @@ class HomeView(ft.Column):
         from features.home.widgets.today_section import TodaySection
 
         self._garden = PlantGarden(self._tokens)
+
         controls: list[ft.Control] = [
             make_text(self._copy("home_title"), TextStyles.heading1),
             self._garden,
         ]
-        if fresh:
-            controls.append(FreshStartBanner(self._tokens, self._open_ritual))
-        controls += [
-            TodaySection(self._tokens, today, self._handle_complete,
-                         section_title=self._copy("today_title")),
-            HabitsSection(self._tokens, daily, self._handle_habit_tap,
-                          section_title=self._copy("habits_title")),
-            DeadlinesSection(self._tokens, deadlines,
-                             section_title=self._copy("deadlines_title"),
-                             horizon_prefix=self._copy("horizon_prefix")),
-            BacklogSection(self._tokens, backlog, self._elevate_to_today,
-                           section_title=self._copy("backlog_title")),
-        ]
-        self._body.controls = controls
-        try: self._body.update()
-        except Exception: pass
 
-    def _handle_complete(self, activity: Activity) -> None:
+        if fresh:
+            controls.append(
+                FreshStartBanner(self._tokens, self._open_ritual)
+            )
+
+        # Sección "Hoy cultivo" — tap abre detalle, racha NO sube aquí
+        controls.append(
+            TodaySection(
+                self._tokens,
+                today,
+                on_complete=self._handle_today_tap,
+                section_title=self._copy("today_title"),
+            )
+        )
+
+        # Sección "Mis hábitos" — tap abre detalle
+        controls.append(
+            HabitsSection(
+                self._tokens,
+                daily,
+                on_select=self._handle_habit_tap,
+                section_title=self._copy("habits_title"),
+            )
+        )
+
+        # Sección "Horizontes"
+        controls.append(
+            DeadlinesSection(
+                self._tokens,
+                deadlines,
+                section_title=self._copy("deadlines_title"),
+                horizon_prefix=self._copy("horizon_prefix"),
+            )
+        )
+
+        # Sección "Semillas en espera" — colapsable, elevate con tap
+        controls.append(
+            BacklogSection(
+                self._tokens,
+                backlog,
+                on_elevate=self._elevate_to_today,
+                section_title=self._copy("backlog_title"),
+            )
+        )
+
+        self._body.controls = controls
+        try:
+            self._body.update()
+        except Exception:
+            pass
+
+    # ── COMPLETAR ─────────────────────────────────────────────────
+    # La racha se incrementa SOLO desde este método (llamado por ActivityDetailView)
+    def _complete_activity(self, activity: Activity) -> None:
         try:
             from core.container import AppContainer
             res = AppContainer.instance().complete_activity_uc.execute(
@@ -3807,35 +4677,74 @@ class HomeView(ft.Column):
                     self._show_badge(result.new_badge)
                 if hasattr(self, "_garden"):
                     self._garden.celebrate()
-            threading.Thread(target=self._load_data, daemon=True).start()
+                snack = ft.SnackBar(
+                    content=ft.Text(
+                        f"✅ {activity.title} completada hoy",
+                        color="#FFFFFF",
+                    ),
+                    bgcolor=self._tokens.color_primary,
+                    duration=2000,
+                )
+                self._page.overlay.append(snack)
+                snack.open = True
+            self._page.run_task(self._load_data)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("Complete error: %s", exc)
+
+    def _handle_today_tap(self, activity: Activity) -> None:
+        """Tap en card de 'Hoy cultivo' → abre detalle."""
+        self._open_detail(activity)
+
+    def _handle_habit_tap(self, activity: Activity) -> None:
+        """Tap en chip de hábito → abre detalle."""
+        self._open_detail(activity)
+
+    # ── DETALLE ───────────────────────────────────────────────────
+    def _open_detail(self, activity: Activity) -> None:
+        from features.activity.activity_detail_view import ActivityDetailView
+
+        sheet = ActivityDetailView(
+            activity=activity,
+            tokens=self._tokens,
+            page=self._page,
+            on_complete=self._complete_activity,   # ← racha sube aquí
+            on_archived=lambda: self._page.run_task(self._load_data),
+            on_dismiss=lambda: self._page.run_task(self._load_data),
+        )
+        self._page.overlay.append(sheet)
+        sheet.open = True
+        try:
+            self._page.update()
         except Exception:
             pass
 
+    # ── CHEST / BADGE ─────────────────────────────────────────────
     def _show_chest(self) -> None:
         from features.gamification.chest_widget import ChestWidget
         dialog = ChestWidget(
             tokens=self._tokens,
-            on_open=lambda: threading.Thread(
-                target=self._load_data, daemon=True
-            ).start(),
+            on_open=lambda: self._page.run_task(self._load_data),
             page=self._page,
         )
         self._page.overlay.append(dialog)
         dialog.open = True
-        try: self._page.update()
-        except Exception: pass
+        try:
+            self._page.update()
+        except Exception:
+            pass
 
-    def _show_badge(self, badge) -> None:
+    def _show_badge(self, badge: object) -> None:
         from features.gamification.badge_celebration import BadgeCelebration
         overlay = BadgeCelebration(tokens=self._tokens, page=self._page)
         self._page.overlay.append(overlay)
-        try: self._page.update()
-        except Exception: pass
-        overlay.show(badge)
+        try:
+            self._page.update()
+        except Exception:
+            pass
+        overlay.show(badge)  # type: ignore[arg-type]
 
-    def _handle_habit_tap(self, activity: Activity) -> None:
-        pass  # future: open detail sheet
-
+    # ── BACKLOG → HOY ─────────────────────────────────────────────
     def _elevate_to_today(self, activity: Activity) -> None:
         try:
             from core.container import AppContainer
@@ -3843,20 +4752,51 @@ class HomeView(ft.Column):
             res = c.activity_repo.get_today_intentions()
             current = res.value or []
             ids = [a.id or 0 for a in current]
-            if activity.id not in ids:
-                ids.append(activity.id or 0)
-            c.activity_repo.set_today_intentions(ids[:3])
-            threading.Thread(target=self._load_data, daemon=True).start()
+
+            if activity.id in ids:
+                return
+
+            max_res = c.gamification_repo.get_setting("max_today_intentions")
+            max_intentions = int(max_res.value) if max_res.is_success() else 3
+
+            if len(ids) >= max_intentions:
+                snack = ft.SnackBar(
+                    content=ft.Text(
+                        f"Ya tienes {max_intentions} semillas para hoy 🌱"
+                    ),
+                    duration=2500,
+                )
+                self._page.overlay.append(snack)
+                snack.open = True
+                try:
+                    self._page.update()
+                except Exception:
+                    pass
+                return
+
+            ids.append(activity.id or 0)
+            c.activity_repo.set_today_intentions(ids[:max_intentions])
+            snack = ft.SnackBar(
+                content=ft.Text(f"🌱 {activity.title} añadida a hoy"),
+                bgcolor=self._tokens.color_primary,
+                duration=2000,
+            )
+            self._page.overlay.append(snack)
+            snack.open = True
+            self._page.run_task(self._load_data)
         except Exception:
             pass
 
+    # ── RITUAL ────────────────────────────────────────────────────
     def _open_ritual(self) -> None:
         from features.home.widgets.ritual_sheet import RitualSheet
         sheet = RitualSheet(self._tokens, self._handle_ritual, self._page)
         self._page.overlay.append(sheet)
         sheet.open = True
-        try: self._page.update()
-        except Exception: pass
+        try:
+            self._page.update()
+        except Exception:
+            pass
 
     def _handle_ritual(self, ids: list[int]) -> None:
         try:
@@ -3864,22 +4804,24 @@ class HomeView(ft.Column):
             AppContainer.instance().activity_repo.set_today_intentions(ids)
         except Exception:
             pass
-        threading.Thread(target=self._load_data, daemon=True).start()
+        self._page.run_task(self._load_data)
 
-    def _open_create(self, e) -> None:
+    # ── CREATE ────────────────────────────────────────────────────
+    def _open_create(self, e: object) -> None:
         from features.activity.create_activity_view import CreateActivityView
         sheet = CreateActivityView(
             tokens=self._tokens,
-            on_created=lambda: threading.Thread(
-                target=self._load_data, daemon=True,
-            ).start(),
+            on_created=lambda: self._page.run_task(self._load_data),
             page=self._page,
         )
         self._page.overlay.append(sheet)
         sheet.open = True
-        try: self._page.update()
-        except Exception: pass
+        try:
+            self._page.update()
+        except Exception:
+            pass
 
+    # ── COPY ──────────────────────────────────────────────────────
     @staticmethod
     def _copy(key: str) -> str:
         try:
@@ -3896,6 +4838,25 @@ class HomeView(ft.Column):
 
 
 --- FILE: ./features/__init__.py ---
+
+
+--- FILE: ./tests/test_bottomsheet.py ---
+import flet as ft
+def main(page: ft.Page):
+    def open_bs(e):
+        col = ft.Column([ft.Text(f"Item {i}") for i in range(50)], scroll=ft.ScrollMode.AUTO)
+        bs = ft.BottomSheet(
+            content=ft.Container(
+                content=col,
+                bgcolor="blue",
+                padding=20,
+            )
+        )
+        page.overlay.append(bs)
+        bs.open = True
+        page.update()
+    page.add(ft.ElevatedButton("Open", on_click=open_bs))
+ft.app(target=main)
 
 
 --- FILE: ./tests/conftest.py ---
@@ -3948,6 +4909,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 import pytest
+import dataclasses
 from datetime import date, timedelta
 
 from core.database.db_helper import DBHelper
@@ -3973,6 +4935,16 @@ def _make_activity(title: str = "Test") -> int:
     return res.get_or_raise().id or 0
 
 
+def _wind_back_one_day(activity_id: int) -> None:
+    """Move last_checkin_date back one day to simulate time passing."""
+    c = AppContainer.instance()
+    s = c.gamification_repo.get_streak(activity_id).get_or_raise()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    c.gamification_repo.update_streak(
+        dataclasses.replace(s, last_checkin_date=yesterday)
+    )
+
+
 def test_first_completion_starts_streak():
     aid = _make_activity()
     res = AppContainer.instance().complete_activity_uc.execute(activity_id=aid)
@@ -3988,12 +4960,7 @@ def test_consecutive_completions_grow_streak():
     for i in range(3):
         r = c.complete_activity_uc.execute(activity_id=aid)
         assert r.is_success()
-        # Simulate time passing
-        s = c.gamification_repo.get_streak(aid).get_or_raise()
-        import datetime
-        new_date = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-        s = type(s)(s.id, s.activity_id, s.current_count, s.best_count, new_date, s.shields_available, s.weekly_completion_rate, s.total_completions)
-        c.gamification_repo.update_streak(s)
+        _wind_back_one_day(aid)
     assert r is not None and r.get_or_raise().streak.current_count == 3
 
 
@@ -4002,11 +4969,7 @@ def test_best_count_updates():
     c = AppContainer.instance()
     for _ in range(5):
         c.complete_activity_uc.execute(activity_id=aid)
-        s = c.gamification_repo.get_streak(aid).get_or_raise()
-        import datetime
-        new_date = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-        s = type(s)(s.id, s.activity_id, s.current_count, s.best_count, new_date, s.shields_available, s.weekly_completion_rate, s.total_completions)
-        c.gamification_repo.update_streak(s)
+        _wind_back_one_day(aid)
     streak = c.gamification_repo.get_streak(activity_id=aid)
     assert streak.get_or_raise().best_count == 5
 
@@ -4024,6 +4987,7 @@ def test_today_intentions_returned():
     assert res.is_success()
     activities, fresh = res.get_or_raise()
     assert any(a.id == aid for a in activities)
+
 
 
 --- FILE: ./tests/unit/test_create_activity.py ---

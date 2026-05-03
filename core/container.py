@@ -40,7 +40,9 @@ class AppContainer:
 
         self.notification_service = NotificationService()
 
-        self.manage_streak_uc = ManageStreakUseCase(self.gamification_repo)
+        self.manage_streak_uc = ManageStreakUseCase(
+            self.gamification_repo, self.activity_repo,
+        )
 
         self.create_activity_uc = CreateActivityUseCase(
             self.activity_repo, self.gamification_repo,

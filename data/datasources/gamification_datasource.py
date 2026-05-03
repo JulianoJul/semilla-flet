@@ -37,11 +37,12 @@ class GamificationLocalDatasource:
         conn.execute(
             "UPDATE streaks SET current_count=?, best_count=?, "
             "last_checkin_date=?, shields_available=?, "
-            "weekly_completion_rate=?, total_completions=? "
+            "weekly_completion_rate=?, total_completions=?, "
+            "weekly_streak_count=? "
             "WHERE activity_id=?",
             (s.current_count, s.best_count, s.last_checkin_date,
              s.shields_available, s.weekly_completion_rate,
-             s.total_completions, s.activity_id),
+             s.total_completions, s.weekly_streak_count, s.activity_id),
         )
         conn.commit()
         return self.get_streak(s.activity_id)
@@ -69,35 +70,59 @@ class GamificationLocalDatasource:
         ).fetchall()
         return [map_badge(r) for r in rows]
 
-    def check_and_unlock(self, activity_id: int) -> Optional[BadgeEntity]:
+    def check_and_unlock(
+        self, activity_id: int, shield_was_used: bool = False,
+    ) -> list[BadgeEntity]:
         streak = self.get_streak(activity_id)
         conn = self._db.get_connection()
         locked = conn.execute(
             "SELECT * FROM badges WHERE unlocked_at IS NULL",
         ).fetchall()
-        now = datetime.now(timezone.utc).isoformat()
-        for row in locked:
-            if self._badge_met(row, streak):
-                conn.execute(
-                    "UPDATE badges SET unlocked_at=? WHERE id=?",
-                    (now, row["id"]),
-                )
-                conn.commit()
-                updated = conn.execute(
-                    "SELECT * FROM badges WHERE id=?", (row["id"],),
-                ).fetchone()
-                return map_badge(updated)
-        return None
+        # Store timestamps as 'YYYY-MM-DD HH:MM:SS' (SQLite-safe, unambiguous UTC).
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        ids_to_unlock: list[int] = [
+            row["id"] for row in locked
+            if self._badge_met(row, streak, shield_was_used)
+        ]
+        if not ids_to_unlock:
+            return []
+        # Unlock all qualifying badges in a single transaction.
+        for bid in ids_to_unlock:
+            conn.execute(
+                "UPDATE badges SET unlocked_at=? WHERE id=?", (now, bid),
+            )
+        conn.commit()
+        rows = conn.execute(
+            f"SELECT * FROM badges WHERE id IN ({','.join('?' * len(ids_to_unlock))})",
+            ids_to_unlock,
+        ).fetchall()
+        return [map_badge(r) for r in rows]
 
-    @staticmethod
-    def _badge_met(row: dict, streak: Streak) -> bool:
+    def _badge_met(
+        self, row: dict, streak: Streak, shield_was_used: bool = False,
+    ) -> bool:
         ctype, cval = row["condition_type"], int(row["condition_value"])
         if ctype == "total_completions":
             return streak.total_completions >= cval
         if ctype == "streak":
             return streak.current_count >= cval
         if ctype == "shield_used":
-            return streak.shields_available < 1
+            # Badge se otorga cuando se ha usado un escudo en este check-in
+            return shield_was_used
+        if ctype == "morning_completions":
+            conn = self._db.get_connection()
+            # Timestamps are stored as 'YYYY-MM-DD HH:MM:SS' UTC — no
+            # datetime() wrapper needed; strftime extracts the hour directly.
+            count = conn.execute(
+                "SELECT COUNT(*) as c FROM checkins WHERE activity_id=? AND "
+                "CAST(strftime('%H', completed_at) AS INTEGER) < 9",
+                (streak.activity_id,)
+            ).fetchone()["c"]
+            return count >= cval
+        if ctype == "weekly_consistency":
+            # Count the current week towards the badge if its rate is >= 0.8
+            current_week_qualifies = 1 if streak.weekly_completion_rate >= 0.8 else 0
+            return (streak.weekly_streak_count + current_week_qualifies) >= cval
         return False
 
     # --- CHEST ---

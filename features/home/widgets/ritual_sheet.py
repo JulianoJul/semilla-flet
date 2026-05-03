@@ -102,10 +102,13 @@ class RitualSheet(ft.BottomSheet):
     def _load_candidates(self) -> list[Activity]:
         try:
             from core.container import AppContainer
-            res = AppContainer.instance().activity_repo.get_activities_by_type(
-                ActivityType.DAILY,
-            )
-            return res.value or []
+            repo = AppContainer.instance().activity_repo
+            res_daily = repo.get_activities_by_type(ActivityType.DAILY)
+            res_deadline = repo.get_activities_by_type(ActivityType.DEADLINE)
+            
+            daily = res_daily.value or []
+            deadline = res_deadline.value or []
+            return daily + deadline
         except Exception:
             return []
 

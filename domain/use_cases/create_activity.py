@@ -5,7 +5,7 @@ domain/use_cases/create_activity.py — Create a new activity.
 # --- IMPORTS ---
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from core.result import Failure, Result, Success
@@ -55,7 +55,8 @@ class CreateActivityUseCase:
                     )
 
         # --- CREATE ---
-        now = datetime.now(timezone.utc).isoformat()
+        # Store timestamps as 'YYYY-MM-DD HH:MM:SS' (SQLite-safe, unambiguous UTC).
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         activity = Activity(
             id=None, title=title, type=act_type,
             frequency_config=frequency_config,
@@ -79,10 +80,15 @@ class CreateActivityUseCase:
             "endowed_progress_checkins",
         )
         count = int(ep_res.value) if isinstance(ep_res, Success) else 2
-        now = datetime.now(timezone.utc).isoformat()
-        for _ in range(count):
+        # Each endowed check-in is placed on a distinct past day (not today)
+        # to avoid polluting morning_completions or same-day duplicate logic.
+        for i in range(count):
+            days_ago = count - i  # e.g. count=2 → 2 days ago, 1 day ago
+            past_ts = (
+                datetime.now(timezone.utc) - timedelta(days=days_ago)
+            ).strftime("%Y-%m-%d 12:00:00")
             checkin = CheckIn(
                 id=None, activity_id=activity.id or 0,
-                completed_at=now, notes="endowed",
+                completed_at=past_ts, notes="endowed",
             )
             self._activity_repo.create_checkin(checkin)

@@ -3,7 +3,7 @@
 # --- IMPORTS ---
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 import flet as ft
 
@@ -19,7 +19,7 @@ class ChestWidget(ft.AlertDialog):
     def __init__(
         self,
         tokens: DesignTokens,
-        on_open: Callable[[], None],
+        on_open: Callable[[], Any],
         page: ft.Page,
     ) -> None:
         self._tokens = tokens
@@ -53,13 +53,13 @@ class ChestWidget(ft.AlertDialog):
             bgcolor=tokens.color_base,
         )
 
-    def _open_chest(self, callback: Callable[[], None]) -> None:
+    def _open_chest(self, callback: Callable[[], Any]) -> None:
         self._chest_icon.scale = 1.2
         try: self._chest_icon.update()
         except Exception: pass
-        import threading, time
-        def animate() -> None:
-            time.sleep(0.4)
+        async def animate() -> None:
+            import asyncio
+            await asyncio.sleep(0.4)
             self._chest_icon.content = ft.Text("🌟", size=64)
             self._chest_icon.scale = 1.0
             reward = self._pick_reward()
@@ -68,12 +68,12 @@ class ChestWidget(ft.AlertDialog):
                 self._chest_icon.update()
                 self._reward_text.update()
             except Exception: pass
-            time.sleep(1.0)
+            await asyncio.sleep(1.0)
             self.open = False
             try: self._page.update()
             except Exception: pass
             callback()
-        threading.Thread(target=animate, daemon=True).start()
+        self._page.run_task(animate)
 
     @staticmethod
     def _pick_reward() -> str:
@@ -81,7 +81,7 @@ class ChestWidget(ft.AlertDialog):
             from core.database.db_helper import DBHelper
             conn = DBHelper.instance().get_connection()
             row = conn.execute(
-                "SELECT value FROM ui_copy WHERE key='chest_reward' "
+                "SELECT value FROM ui_copy WHERE key LIKE 'chest_reward%' "
                 "ORDER BY RANDOM() LIMIT 1",
             ).fetchone()
             return row["value"] if row else "¡Un pequeño regalo para ti! 🌱"

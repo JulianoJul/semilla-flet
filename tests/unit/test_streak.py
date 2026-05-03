@@ -4,6 +4,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 import pytest
+import dataclasses
 from datetime import date, timedelta
 
 from core.database.db_helper import DBHelper
@@ -29,6 +30,16 @@ def _make_activity(title: str = "Test") -> int:
     return res.get_or_raise().id or 0
 
 
+def _wind_back_one_day(activity_id: int) -> None:
+    """Move last_checkin_date back one day to simulate time passing."""
+    c = AppContainer.instance()
+    s = c.gamification_repo.get_streak(activity_id).get_or_raise()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    c.gamification_repo.update_streak(
+        dataclasses.replace(s, last_checkin_date=yesterday)
+    )
+
+
 def test_first_completion_starts_streak():
     aid = _make_activity()
     res = AppContainer.instance().complete_activity_uc.execute(activity_id=aid)
@@ -44,12 +55,7 @@ def test_consecutive_completions_grow_streak():
     for i in range(3):
         r = c.complete_activity_uc.execute(activity_id=aid)
         assert r.is_success()
-        # Simulate time passing
-        s = c.gamification_repo.get_streak(aid).get_or_raise()
-        import datetime
-        new_date = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-        s = type(s)(s.id, s.activity_id, s.current_count, s.best_count, new_date, s.shields_available, s.weekly_completion_rate, s.total_completions)
-        c.gamification_repo.update_streak(s)
+        _wind_back_one_day(aid)
     assert r is not None and r.get_or_raise().streak.current_count == 3
 
 
@@ -58,11 +64,7 @@ def test_best_count_updates():
     c = AppContainer.instance()
     for _ in range(5):
         c.complete_activity_uc.execute(activity_id=aid)
-        s = c.gamification_repo.get_streak(aid).get_or_raise()
-        import datetime
-        new_date = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-        s = type(s)(s.id, s.activity_id, s.current_count, s.best_count, new_date, s.shields_available, s.weekly_completion_rate, s.total_completions)
-        c.gamification_repo.update_streak(s)
+        _wind_back_one_day(aid)
     streak = c.gamification_repo.get_streak(activity_id=aid)
     assert streak.get_or_raise().best_count == 5
 
@@ -80,3 +82,4 @@ def test_today_intentions_returned():
     assert res.is_success()
     activities, fresh = res.get_or_raise()
     assert any(a.id == aid for a in activities)
+

@@ -51,7 +51,7 @@ class BadgeCelebration(ft.Container):
         )
         super().__init__(
             content=card,
-            bgcolor=ft.Colors.with_opacity(0.7, "#000000"),
+            bgcolor="#B3000000",  # ~70% opaque black (#AARRGGBB)
             alignment=ft.Alignment(0, 0),
             expand=True,
             visible=False,
@@ -72,14 +72,21 @@ class BadgeCelebration(ft.Container):
             self.update()
         except Exception:
             pass
-        import threading, time
-        def hide() -> None:
-            time.sleep(3.0)
+        async def hide() -> None:
+            import asyncio
+            await asyncio.sleep(3.0)
             self.opacity = 0.0
             try: self.update()
             except Exception: pass
-            time.sleep(0.4)
+            await asyncio.sleep(0.4)
             self.visible = False
             try: self.update()
             except Exception: pass
-        threading.Thread(target=hide, daemon=True).start()
+            page = self._page
+            if page is None:
+                return
+            if self in page.overlay:
+                page.overlay.remove(self)
+                try: page.update()
+                except Exception: pass
+        self._page.run_task(hide)

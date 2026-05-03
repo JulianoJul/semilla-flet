@@ -57,11 +57,13 @@ class DBHelper:
 
     # --- MIGRATION ---
     def init_db(self) -> None:
-        from core.database.migrations.migration_1 import run_migration
+        from core.database.migrations.migration_1 import run_migration as run_migration_1
+        from core.database.migrations.migration_2 import run_migration as run_migration_2
 
         conn = self.get_connection()
         try:
-            run_migration(conn)
+            run_migration_1(conn)
+            run_migration_2(conn)
             conn.commit()
             logger.info("DB initialized at %s", self._db_path)
         except Exception:

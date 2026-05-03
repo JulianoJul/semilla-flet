@@ -5,8 +5,6 @@ data/repositories/gamification_repository_impl.py — Concrete GamificationRepos
 # --- IMPORTS ---
 from __future__ import annotations
 
-from typing import Optional
-
 from core.result import Failure, Result, Success
 from data.datasources.gamification_datasource import (
     GamificationLocalDatasource,
@@ -48,10 +46,10 @@ class GamificationRepositoryImpl(GamificationRepository):
             return Failure(f"Error al obtener insignias: {e}")
 
     def check_and_unlock_badges(
-        self, activity_id: int,
-    ) -> Result[Optional[BadgeEntity]]:
+        self, activity_id: int, shield_was_used: bool = False,
+    ) -> Result[list[BadgeEntity]]:
         try:
-            return Success(self._ds.check_and_unlock(activity_id))
+            return Success(self._ds.check_and_unlock(activity_id, shield_was_used))
         except Exception as e:
             return Failure(f"Error al verificar insignias: {e}")
 

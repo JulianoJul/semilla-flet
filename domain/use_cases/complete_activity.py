@@ -36,7 +36,8 @@ class CompleteActivityUseCase:
         notes: str | None = None,
     ) -> Result[CompletionResult]:
         # --- CREATE CHECKIN ---
-        now = datetime.now(timezone.utc).isoformat()
+        # Store timestamps as 'YYYY-MM-DD HH:MM:SS' (SQLite-safe, unambiguous UTC).
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         checkin = CheckIn(
             id=None, activity_id=activity_id,
             completed_at=now, notes=notes,
@@ -51,23 +52,27 @@ class CompleteActivityUseCase:
             return Failure(streak_res.error)
 
         # --- CHECK BADGES ---
+        shield_was_used = streak_res.value.shield_used
         badge_res = self._gamification_repo.check_and_unlock_badges(
-            activity_id,
+            activity_id, shield_was_used=shield_was_used,
         )
         new_badge = None
-        if isinstance(badge_res, Success):
-            new_badge = badge_res.value
+        if isinstance(badge_res, Success) and badge_res.value:
+            # Show the first unlocked badge; others are already saved in DB
+            new_badge = badge_res.value[0]
 
         # --- CHECK CHEST ---
         chest_res = self._gamification_repo.should_show_chest()
         show_chest = isinstance(chest_res, Success) and chest_res.value
 
-        # --- NOTIFICATIONS ---
-        self._notification_service.send_completion_feedback()
-
-        return Success(CompletionResult(
+        result = CompletionResult(
             checkin=checkin_res.value,
             streak=streak_res.value.streak,
             show_chest=show_chest,
             new_badge=new_badge,
-        ))
+        )
+
+        # --- NOTIFICATIONS — only on full success ---
+        self._notification_service.send_completion_feedback()
+
+        return Success(result)

@@ -1,9 +1,6 @@
 # features/home/home_view.py — Main home screen.
 
-# --- IMPORTS ---
 from __future__ import annotations
-
-import threading
 from typing import Optional
 
 import flet as ft
@@ -24,16 +21,20 @@ class HomeView(ft.Column):
             ft.Container(
                 content=self._body,
                 bgcolor=COLOR_BASE,
-                padding=ft.Padding(left=20, right=20, top=24, bottom=24),
+                padding=ft.Padding(left=20, right=20, top=24, bottom=80),
                 expand=True,
             )
         ]
+        # FAB para crear nueva actividad
         page.floating_action_button = ft.FloatingActionButton(
             icon=ft.Icons.ADD,
             bgcolor=self._tokens.color_primary,
+            foreground_color=self._tokens.color_shadow_light,
             on_click=self._open_create,
+            tooltip="Nueva semilla",
         )
-        threading.Thread(target=self._load_data, daemon=True).start()
+        page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
+        self._page.run_task(self._load_data)
 
     def _load_tokens(self) -> DesignTokens:
         try:
@@ -42,7 +43,7 @@ class HomeView(ft.Column):
         except Exception:
             return DesignTokens.defaults()
 
-    def _load_data(self) -> None:
+    async def _load_data(self) -> None:
         try:
             from core.container import AppContainer
             c = AppContainer.instance()
@@ -57,13 +58,15 @@ class HomeView(ft.Column):
             bl_res = c.activity_repo.get_activities_by_type(ActivityType.BACKLOG)
 
             self._build_ui(
-                today=activities, fresh=fresh,
+                today=activities,
+                fresh=fresh,
                 daily=daily_res.value or [],
                 deadlines=dl_res.value or [],
                 backlog=bl_res.value or [],
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("HomeView load error: %s", exc)
 
     def _build_ui(
         self,
@@ -81,28 +84,66 @@ class HomeView(ft.Column):
         from features.home.widgets.today_section import TodaySection
 
         self._garden = PlantGarden(self._tokens)
+
         controls: list[ft.Control] = [
             make_text(self._copy("home_title"), TextStyles.heading1),
             self._garden,
         ]
-        if fresh:
-            controls.append(FreshStartBanner(self._tokens, self._open_ritual))
-        controls += [
-            TodaySection(self._tokens, today, self._handle_complete,
-                         section_title=self._copy("today_title")),
-            HabitsSection(self._tokens, daily, self._handle_habit_tap,
-                          section_title=self._copy("habits_title")),
-            DeadlinesSection(self._tokens, deadlines,
-                             section_title=self._copy("deadlines_title"),
-                             horizon_prefix=self._copy("horizon_prefix")),
-            BacklogSection(self._tokens, backlog, self._elevate_to_today,
-                           section_title=self._copy("backlog_title")),
-        ]
-        self._body.controls = controls
-        try: self._body.update()
-        except Exception: pass
 
-    def _handle_complete(self, activity: Activity) -> None:
+        if fresh:
+            controls.append(
+                FreshStartBanner(self._tokens, self._open_ritual)
+            )
+
+        # Sección "Hoy cultivo" — tap abre detalle, racha NO sube aquí
+        controls.append(
+            TodaySection(
+                self._tokens,
+                today,
+                on_complete=self._handle_today_tap,
+                section_title=self._copy("today_title"),
+            )
+        )
+
+        # Sección "Mis hábitos" — tap abre detalle
+        controls.append(
+            HabitsSection(
+                self._tokens,
+                daily,
+                on_select=self._handle_habit_tap,
+                section_title=self._copy("habits_title"),
+            )
+        )
+
+        # Sección "Horizontes"
+        controls.append(
+            DeadlinesSection(
+                self._tokens,
+                deadlines,
+                section_title=self._copy("deadlines_title"),
+                horizon_prefix=self._copy("horizon_prefix"),
+            )
+        )
+
+        # Sección "Semillas en espera" — colapsable, elevate con tap
+        controls.append(
+            BacklogSection(
+                self._tokens,
+                backlog,
+                on_elevate=self._elevate_to_today,
+                section_title=self._copy("backlog_title"),
+            )
+        )
+
+        self._body.controls = controls
+        try:
+            self._body.update()
+        except Exception:
+            pass
+
+    # ── COMPLETAR ─────────────────────────────────────────────────
+    # La racha se incrementa SOLO desde este método (llamado por ActivityDetailView)
+    def _complete_activity(self, activity: Activity) -> None:
         try:
             from core.container import AppContainer
             res = AppContainer.instance().complete_activity_uc.execute(
@@ -116,35 +157,74 @@ class HomeView(ft.Column):
                     self._show_badge(result.new_badge)
                 if hasattr(self, "_garden"):
                     self._garden.celebrate()
-            threading.Thread(target=self._load_data, daemon=True).start()
+                snack = ft.SnackBar(
+                    content=ft.Text(
+                        f"✅ {activity.title} completada hoy",
+                        color="#FFFFFF",
+                    ),
+                    bgcolor=self._tokens.color_primary,
+                    duration=2000,
+                )
+                self._page.overlay.append(snack)
+                snack.open = True
+            self._page.run_task(self._load_data)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("Complete error: %s", exc)
+
+    def _handle_today_tap(self, activity: Activity) -> None:
+        """Tap en card de 'Hoy cultivo' → abre detalle."""
+        self._open_detail(activity)
+
+    def _handle_habit_tap(self, activity: Activity) -> None:
+        """Tap en chip de hábito → abre detalle."""
+        self._open_detail(activity)
+
+    # ── DETALLE ───────────────────────────────────────────────────
+    def _open_detail(self, activity: Activity) -> None:
+        from features.activity.activity_detail_view import ActivityDetailView
+
+        sheet = ActivityDetailView(
+            activity=activity,
+            tokens=self._tokens,
+            page=self._page,
+            on_complete=self._complete_activity,   # ← racha sube aquí
+            on_archived=lambda: self._page.run_task(self._load_data),
+            on_dismiss=lambda: self._page.run_task(self._load_data),
+        )
+        self._page.overlay.append(sheet)
+        sheet.open = True
+        try:
+            self._page.update()
         except Exception:
             pass
 
+    # ── CHEST / BADGE ─────────────────────────────────────────────
     def _show_chest(self) -> None:
         from features.gamification.chest_widget import ChestWidget
         dialog = ChestWidget(
             tokens=self._tokens,
-            on_open=lambda: threading.Thread(
-                target=self._load_data, daemon=True
-            ).start(),
+            on_open=lambda: self._page.run_task(self._load_data),
             page=self._page,
         )
         self._page.overlay.append(dialog)
         dialog.open = True
-        try: self._page.update()
-        except Exception: pass
+        try:
+            self._page.update()
+        except Exception:
+            pass
 
-    def _show_badge(self, badge) -> None:
+    def _show_badge(self, badge: object) -> None:
         from features.gamification.badge_celebration import BadgeCelebration
         overlay = BadgeCelebration(tokens=self._tokens, page=self._page)
         self._page.overlay.append(overlay)
-        try: self._page.update()
-        except Exception: pass
-        overlay.show(badge)
+        try:
+            self._page.update()
+        except Exception:
+            pass
+        overlay.show(badge)  # type: ignore[arg-type]
 
-    def _handle_habit_tap(self, activity: Activity) -> None:
-        pass  # future: open detail sheet
-
+    # ── BACKLOG → HOY ─────────────────────────────────────────────
     def _elevate_to_today(self, activity: Activity) -> None:
         try:
             from core.container import AppContainer
@@ -152,20 +232,51 @@ class HomeView(ft.Column):
             res = c.activity_repo.get_today_intentions()
             current = res.value or []
             ids = [a.id or 0 for a in current]
-            if activity.id not in ids:
-                ids.append(activity.id or 0)
-            c.activity_repo.set_today_intentions(ids[:3])
-            threading.Thread(target=self._load_data, daemon=True).start()
+
+            if activity.id in ids:
+                return
+
+            max_res = c.gamification_repo.get_setting("max_today_intentions")
+            max_intentions = int(max_res.value) if max_res.is_success() else 3
+
+            if len(ids) >= max_intentions:
+                snack = ft.SnackBar(
+                    content=ft.Text(
+                        f"Ya tienes {max_intentions} semillas para hoy 🌱"
+                    ),
+                    duration=2500,
+                )
+                self._page.overlay.append(snack)
+                snack.open = True
+                try:
+                    self._page.update()
+                except Exception:
+                    pass
+                return
+
+            ids.append(activity.id or 0)
+            c.activity_repo.set_today_intentions(ids[:max_intentions])
+            snack = ft.SnackBar(
+                content=ft.Text(f"🌱 {activity.title} añadida a hoy"),
+                bgcolor=self._tokens.color_primary,
+                duration=2000,
+            )
+            self._page.overlay.append(snack)
+            snack.open = True
+            self._page.run_task(self._load_data)
         except Exception:
             pass
 
+    # ── RITUAL ────────────────────────────────────────────────────
     def _open_ritual(self) -> None:
         from features.home.widgets.ritual_sheet import RitualSheet
         sheet = RitualSheet(self._tokens, self._handle_ritual, self._page)
         self._page.overlay.append(sheet)
         sheet.open = True
-        try: self._page.update()
-        except Exception: pass
+        try:
+            self._page.update()
+        except Exception:
+            pass
 
     def _handle_ritual(self, ids: list[int]) -> None:
         try:
@@ -173,22 +284,24 @@ class HomeView(ft.Column):
             AppContainer.instance().activity_repo.set_today_intentions(ids)
         except Exception:
             pass
-        threading.Thread(target=self._load_data, daemon=True).start()
+        self._page.run_task(self._load_data)
 
-    def _open_create(self, e) -> None:
+    # ── CREATE ────────────────────────────────────────────────────
+    def _open_create(self, e: object) -> None:
         from features.activity.create_activity_view import CreateActivityView
         sheet = CreateActivityView(
             tokens=self._tokens,
-            on_created=lambda: threading.Thread(
-                target=self._load_data, daemon=True,
-            ).start(),
+            on_created=lambda: self._page.run_task(self._load_data),
             page=self._page,
         )
         self._page.overlay.append(sheet)
         sheet.open = True
-        try: self._page.update()
-        except Exception: pass
+        try:
+            self._page.update()
+        except Exception:
+            pass
 
+    # ── COPY ──────────────────────────────────────────────────────
     @staticmethod
     def _copy(key: str) -> str:
         try:

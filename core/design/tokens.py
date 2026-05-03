@@ -21,8 +21,8 @@ class DesignTokens:
     radius_large: int = 24
     shadow_blur: int = 8
     shadow_offset: int = 4
-    shadow_dark_opacity: float = 0.4
-    shadow_light_opacity: float = 0.8
+    shadow_dark_opacity: float = 0.4   # matches seed_data.py
+    shadow_light_opacity: float = 0.8  # matches seed_data.py
     color_base: str = COLOR_BASE
     color_shadow_dark: str = COLOR_SHADOW_DARK
     color_shadow_light: str = COLOR_SHADOW_LIGHT
@@ -57,7 +57,9 @@ class DesignTokens:
                 color_text_sub=f"#{data.get('color_text_sub', '4A6358')}",
                 color_accent_alert=f"#{data.get('color_accent_alert', 'C17A3A')}",
             )
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.warning("Failed to load design tokens from database: %s", e)
             return DesignTokens()
 
     @staticmethod

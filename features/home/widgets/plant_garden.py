@@ -3,7 +3,7 @@
 # --- IMPORTS ---
 from __future__ import annotations
 
-import threading
+
 
 import flet as ft
 
@@ -25,7 +25,7 @@ class PlantGarden(ft.Container):
     def __init__(self, tokens: DesignTokens) -> None:
         self._tokens = tokens
         self._plant_container = ft.Container(
-            content=get_plant_stage_asset(0),
+            content=None,
             animate_scale=ft.Animation(400, ft.AnimationCurve.BOUNCE_OUT),  # type: ignore
             scale=1.0,
             alignment=ft.Alignment(0, 0),
@@ -67,8 +67,9 @@ class PlantGarden(ft.Container):
     def celebrate(self) -> None:
         from core.design.animations import pulse_scale, reset_scale
         pulse_scale(self._plant_container, target=1.25)
-        import threading, time
-        def _reset():
-            time.sleep(0.5)
+        async def _reset():
+            import asyncio
+            await asyncio.sleep(0.5)
             reset_scale(self._plant_container)
-        threading.Thread(target=_reset, daemon=True).start()
+        if self.page:
+            self.page.run_task(_reset)  # type: ignore

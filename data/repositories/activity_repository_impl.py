@@ -78,3 +78,11 @@ class ActivityRepositoryImpl(ActivityRepository):
             return Success(self._ds.create_checkin(checkin))
         except Exception as e:
             return Failure(f"Error al crear check-in: {e}")
+
+    def get_checkins_since(
+        self, activity_id: int, since_date: str,
+    ) -> Result[list[CheckIn]]:
+        try:
+            return Success(self._ds.get_checkins_since(activity_id, since_date))
+        except Exception as e:
+            return Failure(f"Error al obtener check-ins desde fecha: {e}")

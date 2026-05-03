@@ -30,8 +30,8 @@ class GamificationRepository(ABC):
 
     @abstractmethod
     def check_and_unlock_badges(
-        self, activity_id: int,
-    ) -> Result[Optional[BadgeEntity]]: ...
+        self, activity_id: int, shield_was_used: bool = False,
+    ) -> Result[list[BadgeEntity]]: ...
 
     @abstractmethod
     def should_show_chest(self) -> Result[bool]: ...

@@ -10,6 +10,16 @@ import flet as ft
 from core.design.tokens import DesignTokens
 
 
+# --- HELPERS ---
+def _with_opacity(opacity: float, color: str) -> str:
+    """Return an #AARRGGBB hex string merging *color* (#RRGGBB) with *opacity* [0-1]."""
+    c = color.lstrip("#")
+    if len(c) == 3:
+        c = "".join(ch * 2 for ch in c)
+    aa = format(round(opacity * 255), "02X")
+    return f"#{aa}{c.upper()}"
+
+
 # --- FACTORY ---
 def neu_card(
     content: ft.Control,
@@ -34,16 +44,12 @@ def neu_card(
             ft.BoxShadow(
                 offset=ft.Offset(o, o),
                 blur_radius=float(t.shadow_blur // 2),
-                color=ft.Colors.with_opacity(
-                    t.shadow_dark_opacity, t.color_shadow_dark,
-                ),
+                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
             ),
             ft.BoxShadow(
                 offset=ft.Offset(-o, -o),
                 blur_radius=float(t.shadow_blur // 2),
-                color=ft.Colors.with_opacity(
-                    t.shadow_light_opacity, t.color_shadow_light,
-                ),
+                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
             ),
         ]
     else:
@@ -51,16 +57,12 @@ def neu_card(
             ft.BoxShadow(
                 offset=ft.Offset(-o, -o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.Colors.with_opacity(
-                    t.shadow_light_opacity, t.color_shadow_light,
-                ),
+                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
             ),
             ft.BoxShadow(
                 offset=ft.Offset(o, o),
                 blur_radius=float(t.shadow_blur),
-                color=ft.Colors.with_opacity(
-                    t.shadow_dark_opacity, t.color_shadow_dark,
-                ),
+                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
             ),
         ]
 

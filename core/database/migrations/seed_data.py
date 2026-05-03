@@ -20,6 +20,7 @@ def _seed_settings(c: sqlite3.Connection) -> None:
         ("sound_volume", "1.0"), ("haptic_intensity", "1.0"),
         ("compassion_pact_accepted", "0"), ("user_archetype", ""),
         ("onboarding_complete", "0"), ("last_chest_date", ""),
+        ("endowed_progress_checkins", "2"),
     ]
     c.executemany("INSERT OR IGNORE INTO settings VALUES (?, ?)", rows)
 
@@ -27,9 +28,8 @@ def _seed_settings(c: sqlite3.Connection) -> None:
 # --- GAMIFICATION PARAMS ---
 def _seed_gamification(c: sqlite3.Connection) -> None:
     rows = [
-        ("chest_drop_rate", "0.4"), ("pity_timer_days", "3"),
+        ("pity_timer_days", "3"),
         ("streak_milestone_days", "[7,14,21,30,60,100]"),
-        ("endowed_progress_checkins", "2"),
     ]
     c.executemany("INSERT OR IGNORE INTO gamification_params VALUES (?, ?)", rows)
 
@@ -93,7 +93,9 @@ def _seed_ui_copy(c: sqlite3.Connection) -> None:
         ("chest_opened_prefix", "¡Has encontrado un cofre!", "gamification"),
         ("chest_title", "¡Cofre encontrado!", "gamification"),
         ("chest_open_label", "Abrir", "gamification"),
-        ("chest_reward", "¡Una recompensa especial! 🌱", "gamification"),
+        ("chest_reward_1", "¡Una recompensa especial! 🌱", "gamification"),
+        ("chest_reward_2", "Tu jardín se fortalece 🌿", "gamification"),
+        ("chest_reward_3", "¡Sigue cultivando tus metas! 🌻", "gamification"),
         ("badge_celebration", "¡Nueva insignia desbloqueada!", "gamification"),
         ("create_title", "Plantar nueva semilla", "create"),
         ("confirm_a", "Plantar hábito", "create"),
@@ -120,6 +122,10 @@ def _seed_notif_copy(c: sqlite3.Connection) -> None:
         ("streak_broken", "Tu racha se reinició. Cada día es nueva semilla.", "reset", None),
         ("shield_used", "Tu escudo protegió la racha. Sigue cultivando.", "shield", None),
         ("fade_out", "Llevas tiempo sin visitar tu jardín. Todo sigue aquí.", "fade", None),
+        ("notification_morning_title", "Semilla", "morning", None),
+        ("notification_evening_title", "¡Bien hecho!", "evening", None),
+        ("notification_streak_reminder", "Tu jardín te espera 🌱", "reminder", None),
+        ("notification_completion", "Tu jardín crece 🌱", "feedback", None),
     ])
 
 

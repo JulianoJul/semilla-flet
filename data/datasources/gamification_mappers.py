@@ -19,6 +19,7 @@ def map_streak(row: dict) -> Streak:
         shields_available=row["shields_available"],
         weekly_completion_rate=row["weekly_completion_rate"],
         total_completions=row["total_completions"],
+        weekly_streak_count=row["weekly_streak_count"] if "weekly_streak_count" in row.keys() else 0,
     )
 
 
