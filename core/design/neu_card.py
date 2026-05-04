@@ -49,7 +49,7 @@ class NeuCard(ft.Container):
 
         self.bgcolor = t.color_base
         self.border_radius = ft.BorderRadius(r, r, r, r)
-        self.clip_behavior = ft.ClipBehavior.NONE
+        self.clip_behavior = ft.ClipBehavior.ANTI_ALIAS
 
         if self.padding is None:
             self.padding = 16

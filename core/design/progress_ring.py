@@ -35,7 +35,12 @@ class NeuProgressRing(ft.Stack):
                 self.ring_size / 2,
             ),
             bgcolor=t.color_base,
-            border=ft.border.all(self.stroke_width, t.color_base),
+            border=ft.Border(
+                top=ft.BorderSide(self.stroke_width, t.color_base),
+                right=ft.BorderSide(self.stroke_width, t.color_base),
+                bottom=ft.BorderSide(self.stroke_width, t.color_base),
+                left=ft.BorderSide(self.stroke_width, t.color_base),
+            ),
             shadow=[
                 ft.BoxShadow(
                     offset=ft.Offset(2, 2),

@@ -141,7 +141,7 @@ class StepPact(ft.Column):
         try: self._btn_container.update()
         except Exception: pass
 
-    def _handle_confirm(self, e: ft.ControlEvent) -> None:
+    def _handle_confirm(self, e) -> None:
         if not self._accepted:
             return
         try:

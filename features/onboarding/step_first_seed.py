@@ -7,7 +7,7 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_card import NeuCard_variant
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
@@ -116,7 +116,7 @@ class StepFirstSeed(ft.Column):
             confirm_btn,
         ]
 
-    def _handle_confirm(self, e: ft.ControlEvent) -> None:
+    def _handle_confirm(self, e) -> None:
         title = (self._field.value or "").strip()
         if not title:
             self._error.value = "Escribe el nombre de tu hábito"

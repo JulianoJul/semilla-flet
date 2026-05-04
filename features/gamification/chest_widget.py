@@ -42,6 +42,7 @@ class ChestWidget(ft.AlertDialog):
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=4,
+                tight=True,
             ),
             actions=[
                 NeuButton(

@@ -151,12 +151,9 @@ class HomeView(ft.Column):
             )
             if res.is_success() and res.value:
                 result = res.value
-                if result.show_chest:
-                    self._show_chest()
-                if result.new_badge is not None:
-                    self._show_badge(result.new_badge)
                 if hasattr(self, "_garden"):
                     self._garden.celebrate()
+                    
                 snack = ft.SnackBar(
                     content=ft.Text(
                         f"✅ {activity.title} completada hoy",
@@ -167,7 +164,18 @@ class HomeView(ft.Column):
                 )
                 self._page.overlay.append(snack)
                 snack.open = True
-            self._page.run_task(self._load_data)
+                
+                def after_chest():
+                    if result.new_badge is not None:
+                        self._show_badge(result.new_badge)
+                    self._page.run_task(self._load_data)
+
+                if result.show_chest:
+                    self._show_chest(on_finish=after_chest)
+                else:
+                    after_chest()
+            else:
+                self._page.run_task(self._load_data)
         except Exception as exc:
             import logging
             logging.getLogger(__name__).error("Complete error: %s", exc)
@@ -200,11 +208,18 @@ class HomeView(ft.Column):
             pass
 
     # ── CHEST / BADGE ─────────────────────────────────────────────
-    def _show_chest(self) -> None:
+    def _show_chest(self, on_finish=None) -> None:
         from features.gamification.chest_widget import ChestWidget
+        
+        def handle_open():
+            if on_finish:
+                on_finish()
+            else:
+                self._page.run_task(self._load_data)
+                
         dialog = ChestWidget(
             tokens=self._tokens,
-            on_open=lambda: self._page.run_task(self._load_data),
+            on_open=handle_open,
             page=self._page,
         )
         self._page.overlay.append(dialog)
@@ -289,11 +304,21 @@ class HomeView(ft.Column):
     # ── CREATE ────────────────────────────────────────────────────
     def _open_create(self, e: object) -> None:
         from features.activity.create_activity_view import CreateActivityView
+
+        def handle_dismiss(ev: object) -> None:
+            if sheet in self._page.overlay:
+                self._page.overlay.remove(sheet)
+                try:
+                    self._page.update()
+                except Exception:
+                    pass
+
         sheet = CreateActivityView(
             tokens=self._tokens,
             on_created=lambda: self._page.run_task(self._load_data),
             page=self._page,
         )
+        sheet.on_dismiss = handle_dismiss
         self._page.overlay.append(sheet)
         sheet.open = True
         try:

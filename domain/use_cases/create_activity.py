@@ -70,8 +70,8 @@ class CreateActivityUseCase:
 
         # --- ENDOWED PROGRESS ---
         created = result.value
-        if act_type in (ActivityType.DAILY, ActivityType.DEADLINE):
-            self._add_endowed_checkins(created)
+        # if act_type in (ActivityType.DAILY, ActivityType.DEADLINE):
+        #     self._add_endowed_checkins(created)
 
         return result
 

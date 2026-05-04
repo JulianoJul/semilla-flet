@@ -54,23 +54,41 @@ class CreateActivityView(ft.BottomSheet):
             hint_text=self._copy("activity_name_hint") or "Nombre de tu semilla...",
             hint_style=ft.TextStyle(color=tokens.color_text_sub),
             color=tokens.color_text_main,
-            border=ft.InputBorder.NONE,
+            filled=True,
+            fill_color=tokens.color_base,
+            border=ft.InputBorder.UNDERLINE,
             text_size=16,
             expand=True,
         )
-        self._deadline_field = ft.TextField(
-            hint_text="YYYY-MM-DD",
-            hint_style=ft.TextStyle(color=tokens.color_text_sub),
-            color=tokens.color_text_main,
-            border=ft.InputBorder.NONE,
-            text_size=14,
-            expand=True,
+        from datetime import datetime as _dt
+        self._date_picker = ft.DatePicker(
+            first_date=_dt.now(),
+            on_change=self._handle_date_change,
+        )
+        self._page.overlay.append(self._date_picker)
+        
+        self._deadline_value = ""
+        self._deadline_text = ft.Text(
+            "Seleccionar fecha...",
+            color=tokens.color_text_sub,
+            size=14,
+        )
+        self._deadline_field = ft.GestureDetector( # type: ignore
+            content=ft.Container(
+                content=self._deadline_text,
+                padding=ft.Padding(0, 8, 0, 8),
+                bgcolor="transparent",
+            ),
+            on_tap=lambda e: self._open_date_picker(),
+            mouse_cursor=ft.MouseCursor.CLICK,
         )
         self._intention_field = ft.TextField(
             hint_text=self._copy("implementation_hint") or "Cuándo y dónde lo harás...",
             hint_style=ft.TextStyle(color=tokens.color_text_sub),
             color=tokens.color_text_main,
-            border=ft.InputBorder.NONE,
+            filled=True,
+            fill_color=tokens.color_base,
+            border=ft.InputBorder.UNDERLINE,
             text_size=14,
             multiline=True,
             min_lines=2,
@@ -81,7 +99,9 @@ class CreateActivityView(ft.BottomSheet):
             hint_text=self._copy("coping_hint") or "Si surge un obstáculo, entonces...",
             hint_style=ft.TextStyle(color=tokens.color_text_sub),
             color=tokens.color_text_main,
-            border=ft.InputBorder.NONE,
+            filled=True,
+            fill_color=tokens.color_base,
+            border=ft.InputBorder.UNDERLINE,
             text_size=14,
             multiline=True,
             min_lines=2,
@@ -253,18 +273,13 @@ class CreateActivityView(ft.BottomSheet):
         )
 
         r = float(tokens.radius_large)
-        h = getattr(self._page, "height", 800) or 800
         super().__init__(
-            use_safe_area=True,
+            scrollable=True,
             content=ft.Container(
-                height=max(500, h * 0.85),
-                bgcolor=COLOR_BASE,
-                padding=ft.Padding(left=24, right=24, top=0, bottom=0),
+                content=self._column,
+                padding=ft.Padding(left=24, right=24, top=0, bottom=24),
+                bgcolor=tokens.color_base,
                 border_radius=ft.BorderRadius(r, r, 0, 0),
-                content=ft.SafeArea(
-                    content=self._column,
-                    bottom=True,
-                ),
             ),
         )
 
@@ -272,7 +287,7 @@ class CreateActivityView(ft.BottomSheet):
     def _field_with_icon(
         self,
         field: ft.Control,
-        icon: str,
+        icon: Any,
         multiline: bool = False,
     ) -> ft.Container:
         t = self._tokens
@@ -310,7 +325,6 @@ class CreateActivityView(ft.BottomSheet):
             on_click=on_click,
             ink=True,
             animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-            width=float("inf"),  # type: ignore
             expand=True,
         )
 
@@ -377,7 +391,7 @@ class CreateActivityView(ft.BottomSheet):
             on_click=self._handle_save,
         )
         try:
-            self._column.update()
+            self._page.update()
         except Exception:
             pass
 
@@ -398,16 +412,34 @@ class CreateActivityView(ft.BottomSheet):
         except Exception:
             pass
 
+    def _open_date_picker(self) -> None:
+        self._date_picker.open = True
+        try:
+            self._page.update()
+        except Exception:
+            pass
+
+    def _handle_date_change(self, e) -> None:
+        if self._date_picker.value:
+            date_str = self._date_picker.value.strftime("%Y-%m-%d")
+            self._deadline_value = date_str
+            self._deadline_text.value = date_str
+            self._deadline_text.color = self._tokens.color_text_main
+            try:
+                self._page.update()
+            except Exception:
+                pass
+
     def _handle_save(self, e: ft.ControlEvent) -> None:
         title = (self._title_field.value or "").strip()
         if not title:
             self._error.value = "El nombre no puede estar vacío"
             try:
-                self._column.update()
+                self._page.update()
             except Exception:
                 pass
             return
-        deadline = (self._deadline_field.value or "").strip() or None
+        deadline = self._deadline_value.strip() or None
         intention = (self._intention_field.value or "").strip() or None
         coping = (self._coping_field.value or "").strip() or None
 
@@ -416,7 +448,7 @@ class CreateActivityView(ft.BottomSheet):
             if not re.match(r"^\d{4}-\d{2}-\d{2}$", deadline):
                 self._error.value = "Fecha inválida. Usa el formato YYYY-MM-DD"
                 try:
-                    self._column.update()
+                    self._page.update()
                 except Exception:
                     pass
                 return
@@ -433,14 +465,14 @@ class CreateActivityView(ft.BottomSheet):
             if res.is_failure():
                 self._error.value = res.error or "Error"
                 try:
-                    self._column.update()
+                    self._page.update()
                 except Exception:
                     pass
                 return
         except Exception as exc:
             self._error.value = str(exc)
             try:
-                self._column.update()
+                self._page.update()
             except Exception:
                 pass
             return

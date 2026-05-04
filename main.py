@@ -84,7 +84,15 @@ def main(page: ft.Page) -> None:
     page.fonts = {
         "Inter": "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2"
     }
-    page.theme = ft.Theme(font_family="Inter")
+    page.theme_mode = ft.ThemeMode.LIGHT
+    page.theme = ft.Theme(
+        font_family="Inter",
+        use_material3=True,
+        bottom_sheet_theme=ft.BottomSheetTheme(
+            bgcolor=COLOR_BASE,
+            elevation=0,
+        )
+    )
 
     # --- DB INIT ---
     if not _init_database():
@@ -107,7 +115,4 @@ def main(page: ft.Page) -> None:
 
 if __name__ == "__main__":
     _ensure_sys_path()
-    ft.app(
-        target=main,
-        assets_dir="assets",
-    )
+    ft.app(main, assets_dir="assets")

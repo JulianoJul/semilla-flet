@@ -177,45 +177,71 @@ class ActivityDetailView(ft.BottomSheet):
             radius_key="standard",
         )
 
-        # ── WEEKLY PROGRESS ─────────────────────────────────────
+        # ── WEEKLY PROGRESS (ROLLING 7 DAYS) ────────────────────
         weekly_rate = streak["weekly_rate"]
-        completed_days = round(weekly_rate * 7)
+        from datetime import date as _date, timedelta as _td, datetime as _dt
+        today_date = _date.today()
+        
+        # Build set of all dates that have checkins
+        active_dates = set()
+        for ci in checkins:
+            try:
+                active_dates.add(_dt.fromisoformat(ci[:19]).date())
+            except Exception:
+                pass
+
+        # Rolling 7 days: 3 past, today, 3 future
+        window_dates = [today_date + _td(days=i) for i in range(-3, 4)]
+        
+        completed_days = len([d for d in window_dates if d in active_dates and d <= today_date])
+
+        def _day_container(d: _date, is_today: bool) -> ft.Control:
+            is_active = d in active_dates
+            display_letter = _DAYS[d.weekday()].upper()
+            
+            # Future days or non-active past days are "apagado"
+            bg = t.color_secondary if is_active else t.color_base
+            txt_color = "#FFFFFF" if is_active else t.color_text_sub
+            if is_today and not is_active:
+                txt_color = t.color_primary # highlight today even if not active
+                
+            return ft.Container(
+                content=ft.Text(
+                    display_letter,
+                    size=12 if is_today else 10,
+                    color=txt_color,
+                    text_align=ft.TextAlign.CENTER,
+                    weight=ft.FontWeight.BOLD if is_today else ft.FontWeight.W_500,
+                ),
+                width=24,
+                height=24,
+                border_radius=ft.BorderRadius(12, 12, 12, 12),
+                bgcolor=bg,
+                shadow=[
+                    ft.BoxShadow(
+                        offset=ft.Offset(1, 1),
+                        blur_radius=3.0,
+                        color=NeuCard._with_opacity(0.3, t.color_shadow_dark),
+                    ),
+                ] if is_active else [
+                    ft.BoxShadow(
+                        offset=ft.Offset(1, 1),
+                        blur_radius=2.0,
+                        color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.4, t.color_shadow_dark),
+                    ),
+                    ft.BoxShadow(
+                        offset=ft.Offset(-1, -1),
+                        blur_radius=2.0,
+                        color=NeuCard._with_opacity(t.shadow_light_opacity * 0.4, t.color_shadow_light),
+                    ),
+                ],
+                alignment=ft.Alignment(0, 0),
+            )
 
         day_indicators = ft.Row(
             controls=[
-                ft.Container(
-                    content=ft.Text(
-                        day,
-                        size=10,
-                        color="#FFFFFF" if idx < completed_days else t.color_text_sub,
-                        text_align=ft.TextAlign.CENTER,
-                        weight=ft.FontWeight.W_500,
-                    ),
-                    width=24,
-                    height=24,
-                    border_radius=ft.BorderRadius(12, 12, 12, 12),
-                    bgcolor=t.color_secondary if idx < completed_days else t.color_base,
-                    shadow=[
-                        ft.BoxShadow(
-                            offset=ft.Offset(1, 1),
-                            blur_radius=3.0,
-                            color=NeuCard._with_opacity(0.3, t.color_shadow_dark),
-                        ),
-                    ] if idx < completed_days else [
-                        ft.BoxShadow(
-                            offset=ft.Offset(1, 1),
-                            blur_radius=2.0,
-                            color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.4, t.color_shadow_dark),
-                        ),
-                        ft.BoxShadow(
-                            offset=ft.Offset(-1, -1),
-                            blur_radius=2.0,
-                            color=NeuCard._with_opacity(t.shadow_light_opacity * 0.4, t.color_shadow_light),
-                        ),
-                    ],
-                    alignment=ft.Alignment(0, 0),
-                )
-                for idx, day in enumerate(_DAYS)
+                _day_container(d, is_today=(d == today_date))
+                for d in window_dates
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         )
@@ -448,25 +474,20 @@ class ActivityDetailView(ft.BottomSheet):
             ft.Container(height=16),
         ]
 
-        h = getattr(self._page, "height", 800) or 800
         content = ft.Container(
-            height=max(500, h * 0.85),
-            bgcolor=COLOR_BASE,
-            padding=ft.Padding(left=24, right=24, top=0, bottom=0),
+            bgcolor=t.color_base,
             border_radius=ft.BorderRadius(r, r, 0, 0),
-            content=ft.SafeArea(
-                content=ft.Column(
-                    controls=sections,
-                    scroll=ft.ScrollMode.AUTO,
-                    spacing=14,
-                ),
-                bottom=True,
+            padding=ft.Padding(left=24, right=24, top=0, bottom=24),
+            content=ft.Column(
+                controls=sections,
+                scroll=ft.ScrollMode.AUTO,
+                spacing=14,
             ),
         )
 
         super().__init__(
-            use_safe_area=True,
             content=content,
+            scrollable=True,
             on_dismiss=lambda e: on_dismiss(),
         )
 

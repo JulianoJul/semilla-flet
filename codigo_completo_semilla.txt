@@ -3,161 +3,126 @@
 
 # --- IMPORTS ---
 from __future__ import annotations
-
-from typing import Optional
+from dataclasses import field
+from typing import Any, Optional
 
 import flet as ft
 
 from core.design.tokens import DesignTokens
 
 
-# --- HELPERS ---
-def _with_opacity(opacity: float, color: str) -> str:
-    """Return an #AARRGGBB hex string merging *color* (#RRGGBB) with *opacity* [0-1]."""
-    c = color.lstrip("#")
-    if len(c) == 3:
-        c = "".join(ch * 2 for ch in c)
-    aa = format(round(opacity * 255), "02X")
-    return f"#{aa}{c.upper()}"
-
-
-# --- FACTORY ---
-def neu_card(
-    content: ft.Control,
-    tokens: Optional[DesignTokens] = None,
-    radius_key: str = "standard",
-    padding: int = 16,
-    width: Optional[int] = None,
-    height: Optional[int] = None,
-    inset: bool = False,
-) -> ft.Container:
-    t = tokens or DesignTokens.defaults()
-    radius_map = {
-        "small": t.radius_small,
-        "standard": t.radius_standard,
-        "large": t.radius_large,
-    }
-    r = float(radius_map.get(radius_key, t.radius_standard))
-    o = t.shadow_offset
-
-    if inset:
-        shadows: list[ft.BoxShadow] = [
-            ft.BoxShadow(
-                offset=ft.Offset(o, o),
-                blur_radius=float(t.shadow_blur // 2),
-                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
-            ),
-            ft.BoxShadow(
-                offset=ft.Offset(-o, -o),
-                blur_radius=float(t.shadow_blur // 2),
-                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
-            ),
-        ]
-    else:
-        shadows = [
-            ft.BoxShadow(
-                offset=ft.Offset(-o, -o),
-                blur_radius=float(t.shadow_blur),
-                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
-            ),
-            ft.BoxShadow(
-                offset=ft.Offset(o, o),
-                blur_radius=float(t.shadow_blur),
-                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
-            ),
-        ]
-
-    return ft.Container(
-        content=content,
-        bgcolor=t.color_base,
-        border_radius=ft.BorderRadius(r, r, r, r),
-        padding=padding,
-        width=width,
-        height=height,
-        shadow=shadows,
-        clip_behavior=ft.ClipBehavior.NONE,
-    )
-
-
-def neu_card_variant(
-    content: ft.Control,
-    tokens: Optional[DesignTokens] = None,
-    radius_key: str = "standard",
-    padding: int = 16,
-    width: Optional[int] = None,
-    height: Optional[int] = None,
-    variant: str = "default",  # "default" | "pressed" | "well"
-) -> ft.Container:
+# --- COMPONENT ---
+@ft.control
+class NeuCard(ft.Container):
     """
-    Factory with visual variants:
+    Neumorphic card control with visual variants:
       - "default": standard outer neumorphic shadows
       - "pressed": reduced shadows (simulates physical depression, scale 0.98)
       - "well":    very subtle outer shadows (for text field wrappers)
+      - "inset":   true inset shadow effect
     """
-    t = tokens or DesignTokens.defaults()
-    radius_map = {
-        "small": t.radius_small,
-        "standard": t.radius_standard,
-        "large": t.radius_large,
-        "full": 999,
-    }
-    r = float(radius_map.get(radius_key, t.radius_standard))
-    o = t.shadow_offset
+    tokens: DesignTokens = field(default_factory=DesignTokens.defaults)
+    radius_key: str = "standard"
+    variant: str = "default"
+    inset: bool = False
 
-    if variant == "pressed":
-        shadows: list[ft.BoxShadow] = [
-            ft.BoxShadow(
-                offset=ft.Offset(-2, -2),
-                blur_radius=4.0,
-                color=_with_opacity(t.shadow_light_opacity * 0.6, t.color_shadow_light),
-            ),
-            ft.BoxShadow(
-                offset=ft.Offset(2, 2),
-                blur_radius=4.0,
-                color=_with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
-            ),
-        ]
-        scale: float = 0.98
-    elif variant == "well":
-        shadows = [
-            ft.BoxShadow(
-                offset=ft.Offset(-1, -1),
-                blur_radius=3.0,
-                color=_with_opacity(0.2, t.color_shadow_dark),
-            ),
-            ft.BoxShadow(
-                offset=ft.Offset(1, 1),
-                blur_radius=3.0,
-                color=_with_opacity(0.5, t.color_shadow_light),
-            ),
-        ]
-        scale = 1.0
-    else:  # "default"
-        shadows = [
-            ft.BoxShadow(
-                offset=ft.Offset(-o, -o),
-                blur_radius=float(t.shadow_blur),
-                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
-            ),
-            ft.BoxShadow(
-                offset=ft.Offset(o, o),
-                blur_radius=float(t.shadow_blur),
-                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
-            ),
-        ]
-        scale = 1.0
+    @staticmethod
+    def _with_opacity(opacity: float, color: str) -> str:
+        """Return an #AARRGGBB hex string merging *color* (#RRGGBB) with *opacity* [0-1]."""
+        c = color.lstrip("#")
+        if len(c) == 3:
+            c = "".join(ch * 2 for ch in c)
+        aa = format(round(opacity * 255), "02X")
+        return f"#{aa}{c.upper()}"
 
-    return ft.Container(
-        content=content,
-        bgcolor=t.color_base,
-        border_radius=ft.BorderRadius(r, r, r, r),
-        padding=padding,
-        width=width,
-        height=height,
-        shadow=shadows,
-        scale=scale,
-        clip_behavior=ft.ClipBehavior.NONE,
-    )
+    def init(self) -> None:
+        super().init()
+        t = self.tokens
+        
+        radius_map = {
+            "small": t.radius_small,
+            "standard": t.radius_standard,
+            "large": t.radius_large,
+            "full": 999,
+        }
+        r = float(radius_map.get(self.radius_key, t.radius_standard))
+        o = t.shadow_offset
+
+        self.bgcolor = t.color_base
+        self.border_radius = ft.BorderRadius(r, r, r, r)
+        self.clip_behavior = ft.ClipBehavior.NONE
+
+        if self.padding is None:
+            self.padding = 16
+
+        # Determine shadow and scale based on variant and inset flag
+        if self.inset:
+            self.shadow = [
+                ft.BoxShadow(
+                    offset=ft.Offset(o, o),
+                    blur_radius=float(t.shadow_blur // 2),
+                    color=self._with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(-o, -o),
+                    blur_radius=float(t.shadow_blur // 2),
+                    color=self._with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+                ),
+            ]
+            self.scale = 1.0
+        elif self.variant == "pressed":
+            self.shadow = [
+                ft.BoxShadow(
+                    offset=ft.Offset(-2, -2),
+                    blur_radius=4.0,
+                    color=self._with_opacity(t.shadow_light_opacity * 0.6, t.color_shadow_light),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(2, 2),
+                    blur_radius=4.0,
+                    color=self._with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
+                ),
+            ]
+            self.scale = 0.98
+        elif self.variant == "well":
+            self.shadow = [
+                ft.BoxShadow(
+                    offset=ft.Offset(-1, -1),
+                    blur_radius=3.0,
+                    color=self._with_opacity(0.2, t.color_shadow_dark),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(1, 1),
+                    blur_radius=3.0,
+                    color=self._with_opacity(0.5, t.color_shadow_light),
+                ),
+            ]
+            self.scale = 1.0
+        else:  # "default"
+            self.shadow = [
+                ft.BoxShadow(
+                    offset=ft.Offset(-o, -o),
+                    blur_radius=float(t.shadow_blur),
+                    color=self._with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(o, o),
+                    blur_radius=float(t.shadow_blur),
+                    color=self._with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+                ),
+            ]
+            self.scale = 1.0
+
+# Provide proxy functions strictly to avoid breaking imports
+# until all consumers are refactored. We'll delete these later.
+def _with_opacity(opacity: float, color: str) -> str:
+    return NeuCard._with_opacity(opacity, color)
+
+def neu_card(content: ft.Control, **kwargs: Any) -> ft.Container:
+    return NeuCard(content=content, **kwargs)
+
+def neu_card_variant(content: ft.Control, **kwargs: Any) -> ft.Container:
+    return NeuCard(content=content, **kwargs)
 
 
 --- FILE: ./core/design/tokens.py ---
@@ -237,78 +202,70 @@ class DesignTokens:
 
 
 --- FILE: ./core/design/neu_button.py ---
-# core/design/neu_button.py — NeuButton with pressed/disabled states.
+# core/design/neu_button.py — NeuButton component.
 
 # --- IMPORTS ---
 from __future__ import annotations
-
-from typing import Callable, Optional
+from dataclasses import field
 
 import flet as ft
 
 from core.design.colors import check_contrast
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 
 
-# --- HELPERS ---
-def _with_opacity(opacity: float, color: str) -> str:
-    """Return an #AARRGGBB hex string merging *color* (#RRGGBB) with *opacity* [0-1]."""
-    c = color.lstrip("#")
-    if len(c) == 3:
-        c = "".join(ch * 2 for ch in c)
-    aa = format(round(opacity * 255), "02X")
-    return f"#{aa}{c.upper()}"
-
-
 # --- COMPONENT ---
+@ft.control
 class NeuButton(ft.Container):
-    def __init__(
-        self,
-        label: str,
-        on_click: Callable[..., None],
-        tokens: Optional[DesignTokens] = None,
-        variant: str = "primary",
-        disabled: bool = False,
-    ) -> None:
-        t = tokens or DesignTokens.defaults()
-        text_color = t.color_shadow_light if variant == "primary" else t.color_text_main
-        bg = t.color_primary if variant == "primary" else t.color_base
+    label: str = ""
+    variant: str = "primary"
+    disabled_state: bool = False
+    tokens: DesignTokens = field(default_factory=DesignTokens.defaults)
+
+    def init(self) -> None:
+        super().init()
+        t = self.tokens
+        text_color = t.color_shadow_light if self.variant == "primary" else t.color_text_main
+        bg = t.color_primary if self.variant == "primary" else t.color_base
         check_contrast(text_color, bg)
 
         r = float(t.radius_standard)
-        super().__init__(
-            content=ft.Text(
-                label,
-                color=text_color,
-                weight=ft.FontWeight.W_600,
-                size=16,
-                text_align=ft.TextAlign.CENTER,
-            ),
-            bgcolor=bg,
-            border_radius=ft.BorderRadius(r, r, r, r),
-            padding=ft.Padding(left=24, right=24, top=14, bottom=14),
-            shadow=self._shadows(t) if not disabled else None,
-            opacity=0.4 if disabled else 1.0,
-            on_click=None if disabled else lambda e: on_click(e),
-            clip_behavior=ft.ClipBehavior.NONE,
-            ink=not disabled,
+        
+        self.content = ft.Text(
+            self.label,
+            color=text_color,
+            weight=ft.FontWeight.W_600,
+            size=16,
+            text_align=ft.TextAlign.CENTER,
         )
-
-    @staticmethod
-    def _shadows(t: DesignTokens) -> list[ft.BoxShadow]:
-        o = t.shadow_offset
-        return [
-            ft.BoxShadow(
-                offset=ft.Offset(-o, -o),
-                blur_radius=float(t.shadow_blur),
-                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
-            ),
-            ft.BoxShadow(
-                offset=ft.Offset(o, o),
-                blur_radius=float(t.shadow_blur),
-                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
-            ),
-        ]
+        self.bgcolor = bg
+        self.border_radius = ft.BorderRadius(r, r, r, r)
+        self.padding = ft.Padding(left=24, right=24, top=14, bottom=14)
+        
+        if not self.disabled_state:
+            o = t.shadow_offset
+            self.shadow = [
+                ft.BoxShadow(
+                    offset=ft.Offset(-o, -o),
+                    blur_radius=float(t.shadow_blur),
+                    color=NeuCard._with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+                ),
+                ft.BoxShadow(
+                    offset=ft.Offset(o, o),
+                    blur_radius=float(t.shadow_blur),
+                    color=NeuCard._with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+                ),
+            ]
+            self.opacity = 1.0
+            self.ink = True
+        else:
+            self.shadow = None
+            self.opacity = 0.4
+            self.on_click = None
+            self.ink = False
+            
+        self.clip_behavior = ft.ClipBehavior.NONE
 
 
 --- FILE: ./core/design/neu_checkbox.py ---
@@ -316,63 +273,51 @@ class NeuButton(ft.Container):
 
 # --- IMPORTS ---
 from __future__ import annotations
-
+from dataclasses import field
 from typing import Callable, Optional
 
 import flet as ft
 
-from core.design.neu_card import _with_opacity
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 
-
+# --- COMPONENT ---
+@ft.control
 class NeuCheckbox(ft.Container):
-    """
-    Neumorphic checkbox:
-      - Unchecked: inset shadows (etched/well look)
-      - Checked:   primary background + outer shadows + check icon
-    """
+    checked: bool = False
+    on_change: Optional[Callable[[bool], None]] = None
+    tokens: DesignTokens = field(default_factory=DesignTokens.defaults)
+    box_size: float = 28.0
 
-    def __init__(
-        self,
-        checked: bool = False,
-        on_change: Optional[Callable[[bool], None]] = None,
-        tokens: Optional[DesignTokens] = None,
-        size: float = 28.0,
-    ) -> None:
-        self._checked = checked
-        self._on_change = on_change
-        self._tokens = tokens or DesignTokens.defaults()
-
-        super().__init__(
-            width=size,
-            height=size,
-            border_radius=ft.BorderRadius(6, 6, 6, 6),
-            on_click=self._toggle,
-            ink=True,
-            animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-        )
-        self._size = size
+    def init(self) -> None:
+        super().init()
+        self.width = self.box_size
+        self.height = self.box_size
+        self.border_radius = ft.BorderRadius(6, 6, 6, 6)
+        self.on_click = self._toggle
+        self.ink = True
+        self.animate_scale = ft.Animation(150, ft.AnimationCurve.EASE_OUT)
         self._apply_state()
 
     def _apply_state(self) -> None:
-        t = self._tokens
-        if self._checked:
+        t = self.tokens
+        if self.checked:
             self.bgcolor = t.color_primary
             self.shadow = [
                 ft.BoxShadow(
                     offset=ft.Offset(-2, -2),
                     blur_radius=4.0,
-                    color=_with_opacity(t.shadow_light_opacity * 0.7, t.color_shadow_light),
+                    color=NeuCard._with_opacity(t.shadow_light_opacity * 0.7, t.color_shadow_light),
                 ),
                 ft.BoxShadow(
                     offset=ft.Offset(2, 2),
                     blur_radius=4.0,
-                    color=_with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
+                    color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
                 ),
             ]
             self.content = ft.Icon(
                 ft.Icons.CHECK,
-                size=self._size * 0.6,
+                size=self.box_size * 0.6,
                 color="#FFFFFF",
             )
         else:
@@ -381,29 +326,29 @@ class NeuCheckbox(ft.Container):
                 ft.BoxShadow(
                     offset=ft.Offset(2, 2),
                     blur_radius=4.0,
-                    color=_with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
+                    color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
                 ),
                 ft.BoxShadow(
                     offset=ft.Offset(-2, -2),
                     blur_radius=4.0,
-                    color=_with_opacity(t.shadow_light_opacity * 0.7, t.color_shadow_light),
+                    color=NeuCard._with_opacity(t.shadow_light_opacity * 0.7, t.color_shadow_light),
                 ),
             ]
             self.content = None
 
     def _toggle(self, e: object) -> None:
-        self._checked = not self._checked
+        self.checked = not self.checked
         self._apply_state()
         try:
             self.update()
         except Exception:
             pass
-        if self._on_change:
-            self._on_change(self._checked)
+        if self.on_change:
+            self.on_change(self.checked)
 
     @property
     def value(self) -> bool:
-        return self._checked
+        return self.checked
 
 
 --- FILE: ./core/design/colors.py ---
@@ -501,81 +446,73 @@ def reset_scale(container: ft.Container) -> None:
 
 
 --- FILE: ./core/design/progress_ring.py ---
-# core/design/progress_ring.py — Neumorphic progress ring component.
+# core/design/progress_ring.py — Neumorphic Progress Ring
 
 # --- IMPORTS ---
 from __future__ import annotations
-
-from typing import Optional
+from dataclasses import field
 
 import flet as ft
 
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 
 
-def _with_opacity(opacity: float, color: str) -> str:
-    c = color.lstrip("#")
-    if len(c) == 3:
-        c = "".join(ch * 2 for ch in c)
-    aa = format(round(opacity * 255), "02X")
-    return f"#{aa}{c.upper()}"
-
-
+@ft.control
 class NeuProgressRing(ft.Stack):
-    """
-    Neumorphic progress ring.
+    value: float = 0.0
+    ring_size: float = 64.0
+    stroke_width: float = 8.0
+    tokens: DesignTokens = field(default_factory=DesignTokens.defaults)
 
-    Renders a circular ProgressRing on top of a neumorphic well (inset shadow)
-    track container. Works as a drop-in replacement for ft.ProgressRing when
-    you need the full neumorphic aesthetic.
-    """
+    def init(self) -> None:
+        super().init()
+        self.width = self.ring_size
+        self.height = self.ring_size
 
-    def __init__(
-        self,
-        value: float,
-        size: float = 18.0,
-        stroke_width: float = 2.0,
-        tokens: Optional[DesignTokens] = None,
-    ) -> None:
-        t = tokens or DesignTokens.defaults()
-        # Clamp value to [0.0, 1.0]
-        clamped = max(0.0, min(1.0, value))
+        t = self.tokens
 
-        # Inset shadow track (simulates a well/groove the ring sits in)
+        # Inset shadow track container
         track = ft.Container(
-            width=size,
-            height=size,
-            border_radius=ft.BorderRadius(size / 2, size / 2, size / 2, size / 2),
+            width=self.ring_size,
+            height=self.ring_size,
+            border_radius=ft.BorderRadius(
+                self.ring_size / 2,
+                self.ring_size / 2,
+                self.ring_size / 2,
+                self.ring_size / 2,
+            ),
             bgcolor=t.color_base,
+            border=ft.Border(
+                top=ft.BorderSide(self.stroke_width, t.color_base),
+                right=ft.BorderSide(self.stroke_width, t.color_base),
+                bottom=ft.BorderSide(self.stroke_width, t.color_base),
+                left=ft.BorderSide(self.stroke_width, t.color_base),
+            ),
             shadow=[
                 ft.BoxShadow(
-                    offset=ft.Offset(1, 1),
-                    blur_radius=3.0,
-                    color=_with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
+                    offset=ft.Offset(2, 2),
+                    blur_radius=4.0,
+                    color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.7, t.color_shadow_dark),
                 ),
                 ft.BoxShadow(
-                    offset=ft.Offset(-1, -1),
-                    blur_radius=3.0,
-                    color=_with_opacity(t.shadow_light_opacity * 0.6, t.color_shadow_light),
+                    offset=ft.Offset(-2, -2),
+                    blur_radius=4.0,
+                    color=NeuCard._with_opacity(t.shadow_light_opacity * 0.7, t.color_shadow_light),
                 ),
             ],
         )
 
-        # Actual progress ring on top
         ring = ft.ProgressRing(
-            value=clamped,
-            width=size,
-            height=size,
-            stroke_width=stroke_width,
+            value=self.value,
+            stroke_width=self.stroke_width,
             color=t.color_secondary,
-            bgcolor="transparent",
+            bgcolor=ft.Colors.TRANSPARENT,
+            width=self.ring_size,
+            height=self.ring_size,
         )
 
-        super().__init__(
-            controls=[track, ring],
-            width=size,
-            height=size,
-        )
+        self.controls = [track, ring]
 
 
 --- FILE: ./core/design/__init__.py ---
@@ -2704,7 +2641,15 @@ def main(page: ft.Page) -> None:
     page.fonts = {
         "Inter": "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2"
     }
-    page.theme = ft.Theme(font_family="Inter")
+    page.theme_mode = ft.ThemeMode.LIGHT
+    page.theme = ft.Theme(
+        font_family="Inter",
+        use_material3=True,
+        bottom_sheet_theme=ft.BottomSheetTheme(
+            bgcolor=COLOR_BASE,
+            elevation=0,
+        )
+    )
 
     # --- DB INIT ---
     if not _init_database():
@@ -2740,7 +2685,7 @@ from __future__ import annotations
 from typing import Any, Callable
 import flet as ft
 from core.design.colors import COLOR_BASE
-from core.design.neu_card import _with_opacity, neu_card, neu_card_variant
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
@@ -2769,7 +2714,7 @@ def _handle_bar(tokens: DesignTokens) -> ft.Control:
 
 def _ambient_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
     """Soft ambient shadow for primary action buttons (not neumorphic)."""
-    colour = _with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
+    colour = NeuCard._with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
     return [ft.BoxShadow(offset=ft.Offset(0, 4), blur_radius=10.0, color=colour)]
 
 
@@ -2892,12 +2837,12 @@ class CreateActivityView(ft.BottomSheet):
                                     ft.BoxShadow(
                                         offset=ft.Offset(-2, -2),
                                         blur_radius=5.0,
-                                        color=_with_opacity(tokens.shadow_light_opacity, tokens.color_shadow_light),
+                                        color=NeuCard._with_opacity(tokens.shadow_light_opacity, tokens.color_shadow_light),
                                     ),
                                     ft.BoxShadow(
                                         offset=ft.Offset(2, 2),
                                         blur_radius=5.0,
-                                        color=_with_opacity(tokens.shadow_dark_opacity, tokens.color_shadow_dark),
+                                        color=NeuCard._with_opacity(tokens.shadow_dark_opacity, tokens.color_shadow_dark),
                                     ),
                                 ],
                                 alignment=ft.Alignment(0, 0),
@@ -2991,12 +2936,13 @@ class CreateActivityView(ft.BottomSheet):
         r = float(tokens.radius_large)
         h = getattr(self._page, "height", 800) or 800
         super().__init__(
+            scrollable=True,
             use_safe_area=True,
             content=ft.Container(
                 height=max(500, h * 0.85),
-                bgcolor=COLOR_BASE,
-                padding=ft.Padding(left=24, right=24, top=0, bottom=0),
+                bgcolor=tokens.color_base,
                 border_radius=ft.BorderRadius(r, r, 0, 0),
+                padding=ft.Padding(left=24, right=24, top=0, bottom=0),
                 content=ft.SafeArea(
                     content=self._column,
                     bottom=True,
@@ -3008,11 +2954,11 @@ class CreateActivityView(ft.BottomSheet):
     def _field_with_icon(
         self,
         field: ft.Control,
-        icon: str,
+        icon: Any,
         multiline: bool = False,
     ) -> ft.Container:
         t = self._tokens
-        return neu_card_variant(
+        return NeuCard(
             content=ft.Row(
                 controls=[
                     ft.Icon(icon, color=t.color_text_sub, size=18),
@@ -3046,7 +2992,6 @@ class CreateActivityView(ft.BottomSheet):
             on_click=on_click,
             ink=True,
             animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-            width=float("inf"),  # type: ignore
             expand=True,
         )
 
@@ -3071,12 +3016,12 @@ class CreateActivityView(ft.BottomSheet):
                         ft.BoxShadow(
                             offset=ft.Offset(-2, -2),
                             blur_radius=4.0,
-                            color=_with_opacity(self._tokens.shadow_light_opacity * 0.5, self._tokens.color_shadow_light),
+                            color=NeuCard._with_opacity(self._tokens.shadow_light_opacity * 0.5, self._tokens.color_shadow_light),
                         ),
                         ft.BoxShadow(
                             offset=ft.Offset(2, 2),
                             blur_radius=4.0,
-                            color=_with_opacity(self._tokens.shadow_dark_opacity * 0.4, self._tokens.color_shadow_dark),
+                            color=NeuCard._with_opacity(self._tokens.shadow_dark_opacity * 0.4, self._tokens.color_shadow_dark),
                         ),
                     ],
                     on_click=lambda e, c=code: self._select_type(c),
@@ -3084,7 +3029,7 @@ class CreateActivityView(ft.BottomSheet):
                 )
             else:
                 chip = ft.GestureDetector(
-                    content=neu_card_variant(
+                    content=NeuCard(
                         content=ft.Text(
                             label,
                             color=self._tokens.color_text_main,
@@ -3113,7 +3058,7 @@ class CreateActivityView(ft.BottomSheet):
             on_click=self._handle_save,
         )
         try:
-            self._column.update()
+            self._page.update()
         except Exception:
             pass
 
@@ -3139,7 +3084,7 @@ class CreateActivityView(ft.BottomSheet):
         if not title:
             self._error.value = "El nombre no puede estar vacío"
             try:
-                self._column.update()
+                self._page.update()
             except Exception:
                 pass
             return
@@ -3152,7 +3097,7 @@ class CreateActivityView(ft.BottomSheet):
             if not re.match(r"^\d{4}-\d{2}-\d{2}$", deadline):
                 self._error.value = "Fecha inválida. Usa el formato YYYY-MM-DD"
                 try:
-                    self._column.update()
+                    self._page.update()
                 except Exception:
                     pass
                 return
@@ -3169,14 +3114,14 @@ class CreateActivityView(ft.BottomSheet):
             if res.is_failure():
                 self._error.value = res.error or "Error"
                 try:
-                    self._column.update()
+                    self._page.update()
                 except Exception:
                     pass
                 return
         except Exception as exc:
             self._error.value = str(exc)
             try:
-                self._column.update()
+                self._page.update()
             except Exception:
                 pass
             return
@@ -3210,7 +3155,7 @@ from typing import Callable, Any
 import flet as ft
 
 from core.design.colors import COLOR_BASE
-from core.design.neu_card import _with_opacity, neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 from domain.entities.activity import Activity
@@ -3231,7 +3176,7 @@ def _handle_bar(tokens: DesignTokens) -> ft.Control:
 
 
 def _ambient_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
-    colour = _with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
+    colour = NeuCard._with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
     return [ft.BoxShadow(offset=ft.Offset(0, 4), blur_radius=10.0, color=colour)]
 
 
@@ -3304,12 +3249,12 @@ class ActivityDetailView(ft.BottomSheet):
                             ft.BoxShadow(
                                 offset=ft.Offset(-2, -2),
                                 blur_radius=5.0,
-                                color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+                                color=NeuCard._with_opacity(t.shadow_light_opacity, t.color_shadow_light),
                             ),
                             ft.BoxShadow(
                                 offset=ft.Offset(2, 2),
                                 blur_radius=5.0,
-                                color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+                                color=NeuCard._with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
                             ),
                         ],
                         alignment=ft.Alignment(0, 0),
@@ -3336,12 +3281,12 @@ class ActivityDetailView(ft.BottomSheet):
                 ft.BoxShadow(
                     offset=ft.Offset(3, 3),
                     blur_radius=6.0,
-                    color=_with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
+                    color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
                 ),
                 ft.BoxShadow(
                     offset=ft.Offset(-3, -3),
                     blur_radius=6.0,
-                    color=_with_opacity(t.shadow_light_opacity * 0.6, t.color_shadow_light),
+                    color=NeuCard._with_opacity(t.shadow_light_opacity * 0.6, t.color_shadow_light),
                 ),
             ],
             alignment=ft.Alignment(0, 0),
@@ -3353,7 +3298,7 @@ class ActivityDetailView(ft.BottomSheet):
         )
 
         # ── STREAK STATS ────────────────────────────────────────
-        stats_card = neu_card(
+        stats_card = NeuCard(
             content=ft.Row(
                 controls=[
                     self._stat_col("🔥", str(streak["current"]), "Racha"),
@@ -3402,18 +3347,18 @@ class ActivityDetailView(ft.BottomSheet):
                         ft.BoxShadow(
                             offset=ft.Offset(1, 1),
                             blur_radius=3.0,
-                            color=_with_opacity(0.3, t.color_shadow_dark),
+                            color=NeuCard._with_opacity(0.3, t.color_shadow_dark),
                         ),
                     ] if idx < completed_days else [
                         ft.BoxShadow(
                             offset=ft.Offset(1, 1),
                             blur_radius=2.0,
-                            color=_with_opacity(t.shadow_dark_opacity * 0.4, t.color_shadow_dark),
+                            color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.4, t.color_shadow_dark),
                         ),
                         ft.BoxShadow(
                             offset=ft.Offset(-1, -1),
                             blur_radius=2.0,
-                            color=_with_opacity(t.shadow_light_opacity * 0.4, t.color_shadow_light),
+                            color=NeuCard._with_opacity(t.shadow_light_opacity * 0.4, t.color_shadow_light),
                         ),
                     ],
                     alignment=ft.Alignment(0, 0),
@@ -3423,7 +3368,7 @@ class ActivityDetailView(ft.BottomSheet):
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         )
 
-        weekly_card = neu_card(
+        weekly_card = NeuCard(
             content=ft.Column(
                 controls=[
                     ft.Row(
@@ -3472,7 +3417,7 @@ class ActivityDetailView(ft.BottomSheet):
         intention_controls: list[ft.Control] = []
         if activity.implementation_intention:
             intention_controls.append(
-                neu_card(
+                NeuCard(
                     content=ft.Column(
                         controls=[
                             ft.Text(
@@ -3495,7 +3440,7 @@ class ActivityDetailView(ft.BottomSheet):
             )
         if activity.coping_plan:
             intention_controls.append(
-                neu_card(
+                NeuCard(
                     content=ft.Column(
                         controls=[
                             ft.Text(
@@ -3641,7 +3586,7 @@ class ActivityDetailView(ft.BottomSheet):
             weekly_card,
             *deadline_controls,
             *intention_controls,
-            *([neu_card(
+            *([NeuCard(
                 content=ft.Column(controls=checkin_controls, spacing=8),
                 tokens=t,
                 padding=16,
@@ -3654,9 +3599,9 @@ class ActivityDetailView(ft.BottomSheet):
         h = getattr(self._page, "height", 800) or 800
         content = ft.Container(
             height=max(500, h * 0.85),
-            bgcolor=COLOR_BASE,
-            padding=ft.Padding(left=24, right=24, top=0, bottom=0),
+            bgcolor=t.color_base,
             border_radius=ft.BorderRadius(r, r, 0, 0),
+            padding=ft.Padding(left=24, right=24, top=0, bottom=0),
             content=ft.SafeArea(
                 content=ft.Column(
                     controls=sections,
@@ -3880,7 +3825,7 @@ from typing import Any, Callable, Optional
 import flet as ft
 
 from core.design.neu_button import NeuButton
-from core.design.neu_card import neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
@@ -3982,7 +3927,7 @@ from typing import Optional
 
 import flet as ft
 
-from core.design.neu_card import neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 from domain.entities.badge_entity import BadgeEntity
@@ -4004,7 +3949,7 @@ class BadgeCelebration(ft.Container):
         self._emoji = ft.Text("🏅", size=64)
         self._name = make_text("", TextStyles.heading2)
         self._description = make_text("", TextStyles.body)
-        card = neu_card(
+        card = NeuCard(
             content=ft.Column(
                 controls=[
                     ft.Container(
@@ -4080,13 +4025,13 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_card import _with_opacity, neu_card_variant
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
 
 def _ambient_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
-    colour = _with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
+    colour = NeuCard._with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
     return [ft.BoxShadow(offset=ft.Offset(0, 4), blur_radius=10.0, color=colour)]
 
 
@@ -4143,7 +4088,7 @@ class StepFirstSeed(ft.Column):
             expand=True,
         )
 
-        field_wrapper = neu_card_variant(
+        field_wrapper = NeuCard(
             content=ft.Row(
                 controls=[
                     ft.Icon(ft.Icons.EDIT_OUTLINED, color=t.color_text_sub, size=18),
@@ -4189,7 +4134,7 @@ class StepFirstSeed(ft.Column):
             confirm_btn,
         ]
 
-    def _handle_confirm(self, e: ft.ControlEvent) -> None:
+    def _handle_confirm(self, e) -> None:
         title = (self._field.value or "").strip()
         if not title:
             self._error.value = "Escribe el nombre de tu hábito"
@@ -4235,14 +4180,14 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_card import _with_opacity, neu_card
+from core.design.neu_card import NeuCard
 from core.design.neu_checkbox import NeuCheckbox
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
 
 def _ambient_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
-    colour = _with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
+    colour = NeuCard._with_opacity(tokens.shadow_ambient_opacity, tokens.color_primary)
     return [ft.BoxShadow(offset=ft.Offset(0, 4), blur_radius=10.0, color=colour)]
 
 
@@ -4252,12 +4197,12 @@ def _disabled_shadow(tokens: DesignTokens) -> list[ft.BoxShadow]:
         ft.BoxShadow(
             offset=ft.Offset(1, 1),
             blur_radius=3.0,
-            color=_with_opacity(t.shadow_dark_opacity * 0.4, t.color_shadow_dark),
+            color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.4, t.color_shadow_dark),
         ),
         ft.BoxShadow(
             offset=ft.Offset(-1, -1),
             blur_radius=3.0,
-            color=_with_opacity(t.shadow_light_opacity * 0.4, t.color_shadow_light),
+            color=NeuCard._with_opacity(t.shadow_light_opacity * 0.4, t.color_shadow_light),
         ),
     ]
 
@@ -4309,7 +4254,7 @@ class StepPact(ft.Column):
             checked=False,
             on_change=self._handle_check,
             tokens=tokens,
-            size=28.0,
+            box_size=28.0,
         )
 
         pact_row = ft.Row(
@@ -4335,7 +4280,7 @@ class StepPact(ft.Column):
             ft.Container(height=20),
             make_text(self._copy("pact_title"), TextStyles.heading2),
             ft.Container(height=8),
-            neu_card(content=pact_row, tokens=tokens, padding=20, width=320),
+            NeuCard(content=pact_row, tokens=tokens, padding=20, width=320),
             self._btn_container,
         ]
         self.controls = controls
@@ -4369,7 +4314,7 @@ class StepPact(ft.Column):
         try: self._btn_container.update()
         except Exception: pass
 
-    def _handle_confirm(self, e: ft.ControlEvent) -> None:
+    def _handle_confirm(self, e) -> None:
         if not self._accepted:
             return
         try:
@@ -4407,7 +4352,7 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_card import _with_opacity, neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
@@ -4490,18 +4435,18 @@ class StepArchetype(ft.Column):
                 ft.BoxShadow(
                     offset=ft.Offset(2, 2),
                     blur_radius=4.0,
-                    color=_with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
+                    color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
                 ),
                 ft.BoxShadow(
                     offset=ft.Offset(-2, -2),
                     blur_radius=4.0,
-                    color=_with_opacity(t.shadow_light_opacity * 0.5, t.color_shadow_light),
+                    color=NeuCard._with_opacity(t.shadow_light_opacity * 0.5, t.color_shadow_light),
                 ),
             ],
             alignment=ft.Alignment(0, 0),
         )
 
-        card = neu_card(
+        card = NeuCard(
             content=ft.Row(
                 controls=[
                     icon_circle,
@@ -4528,18 +4473,18 @@ class StepArchetype(ft.Column):
             scale=1.0,
         )
 
-        def _on_tap_down(e: ft.ControlEvent) -> None:
+        def _on_tap_down(e) -> None:
             container.scale = 0.96
             try: container.update()
             except Exception: pass
 
-        def _on_tap_up(e: ft.ControlEvent) -> None:
+        def _on_tap_up(e) -> None:
             container.scale = 1.0
             try: container.update()
             except Exception: pass
             self._select(key)
 
-        def _on_tap_cancel(e: ft.ControlEvent) -> None:
+        def _on_tap_cancel(e) -> None:
             container.scale = 1.0
             try: container.update()
             except Exception: pass
@@ -4663,7 +4608,7 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_card import neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 from domain.entities.activity import Activity
@@ -4710,7 +4655,7 @@ class BacklogSection(ft.Column):
         except Exception: pass
 
     def _backlog_card(self, activity: Activity) -> ft.Control:
-        card = neu_card(
+        card = NeuCard(
             content=ft.Row(
                 controls=[
                     ft.Text(
@@ -4743,7 +4688,7 @@ from __future__ import annotations
 import flet as ft
 
 from core.asset_helper import get_plant_stage_asset
-from core.design.neu_card import _with_opacity, neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 
 
@@ -4817,12 +4762,12 @@ class PlantGarden(ft.Container):
                         ft.BoxShadow(
                             offset=ft.Offset(1, 1),
                             blur_radius=3.0,
-                            color=_with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
+                            color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
                         ),
                         ft.BoxShadow(
                             offset=ft.Offset(-1, -1),
                             blur_radius=3.0,
-                            color=_with_opacity(t.shadow_light_opacity * 0.5, t.color_shadow_light),
+                            color=NeuCard._with_opacity(t.shadow_light_opacity * 0.5, t.color_shadow_light),
                         ),
                     ],
                 ),
@@ -4858,12 +4803,12 @@ class PlantGarden(ft.Container):
                 ft.BoxShadow(
                     offset=ft.Offset(-t.shadow_offset, -t.shadow_offset),
                     blur_radius=float(t.shadow_blur),
-                    color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+                    color=NeuCard._with_opacity(t.shadow_light_opacity, t.color_shadow_light),
                 ),
                 ft.BoxShadow(
                     offset=ft.Offset(t.shadow_offset, t.shadow_offset),
                     blur_radius=float(t.shadow_blur),
-                    color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+                    color=NeuCard._with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
                 ),
             ],
             clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
@@ -4947,8 +4892,8 @@ class RitualSheet(ft.BottomSheet):
         super().__init__(
             use_safe_area=True,
             content=ft.Container(
-                bgcolor=COLOR_BASE,
                 padding=24,
+                bgcolor=tokens.color_base,
                 border_radius=ft.BorderRadius(r, r, 0, 0),
                 content=ft.SafeArea(
                     ft.Column(
@@ -5005,7 +4950,7 @@ class RitualSheet(ft.BottomSheet):
         try: self._error.update()
         except Exception: pass
 
-    def _handle_confirm(self, e: ft.ControlEvent) -> None:
+    def _handle_confirm(self, e) -> None:
         self._on_confirm(list(self._selected))
         self.open = False
         try: self._page.update()
@@ -5052,7 +4997,7 @@ class RitualSheet(ft.BottomSheet):
 from __future__ import annotations
 from typing import Callable
 import flet as ft
-from core.design.neu_card import neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 from domain.entities.activity import Activity
@@ -5117,7 +5062,7 @@ class HabitsSection(ft.Column):
             tight=True,
         )
 
-        card = neu_card(
+        card = NeuCard(
             content=card_content,
             tokens=self._tokens,
             radius_key="large",
@@ -5140,7 +5085,7 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_card import neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 from domain.entities.activity import Activity
@@ -5188,7 +5133,7 @@ class TodaySection(ft.Column):
             size=22,
         )
 
-        card = neu_card(
+        card = NeuCard(
             content=ft.Row(
                 controls=[
                     ft.Icon(
@@ -5248,7 +5193,7 @@ from typing import Callable
 
 import flet as ft
 
-from core.design.neu_card import _with_opacity, neu_card
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 
@@ -5278,12 +5223,12 @@ class FreshStartBanner(ft.Container):
                 ft.BoxShadow(
                     offset=ft.Offset(-2, -2),
                     blur_radius=5.0,
-                    color=_with_opacity(t.shadow_light_opacity * 0.8, t.color_shadow_light),
+                    color=NeuCard._with_opacity(t.shadow_light_opacity * 0.8, t.color_shadow_light),
                 ),
                 ft.BoxShadow(
                     offset=ft.Offset(2, 2),
                     blur_radius=5.0,
-                    color=_with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
+                    color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.5, t.color_shadow_dark),
                 ),
             ],
             alignment=ft.Alignment(0, 0),
@@ -5338,19 +5283,19 @@ class FreshStartBanner(ft.Container):
                     ft.BoxShadow(
                         offset=ft.Offset(-2, -2),
                         blur_radius=5.0,
-                        color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+                        color=NeuCard._with_opacity(t.shadow_light_opacity, t.color_shadow_light),
                     ),
                     ft.BoxShadow(
                         offset=ft.Offset(2, 2),
                         blur_radius=5.0,
-                        color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+                        color=NeuCard._with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
                     ),
                 ],
             ),
             on_tap=lambda e: on_ritual(),
         )
 
-        card = neu_card(
+        card = NeuCard(
             content=ft.Column(
                 controls=[
                     ft.Row(
@@ -5389,7 +5334,7 @@ from typing import Optional
 
 import flet as ft
 
-from core.design.neu_card import _with_opacity
+from core.design.neu_card import NeuCard
 from core.design.tokens import DesignTokens
 from core.design.typography import TextStyles, make_text
 from domain.entities.activity import Activity
@@ -5410,12 +5355,12 @@ def _neu_shadows(t: DesignTokens) -> list[ft.BoxShadow]:
         ft.BoxShadow(
             offset=ft.Offset(-o, -o),
             blur_radius=float(t.shadow_blur),
-            color=_with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+            color=NeuCard._with_opacity(t.shadow_light_opacity, t.color_shadow_light),
         ),
         ft.BoxShadow(
             offset=ft.Offset(o, o),
             blur_radius=float(t.shadow_blur),
-            color=_with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
+            color=NeuCard._with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
         ),
     ]
 
@@ -5486,12 +5431,12 @@ class DeadlinesSection(ft.Column):
                 ft.BoxShadow(
                     offset=ft.Offset(2, 2),
                     blur_radius=4.0,
-                    color=_with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
+                    color=NeuCard._with_opacity(t.shadow_dark_opacity * 0.6, t.color_shadow_dark),
                 ),
                 ft.BoxShadow(
                     offset=ft.Offset(-2, -2),
                     blur_radius=4.0,
-                    color=_with_opacity(t.shadow_light_opacity * 0.6, t.color_shadow_light),
+                    color=NeuCard._with_opacity(t.shadow_light_opacity * 0.6, t.color_shadow_light),
                 ),
             ],
             alignment=ft.Alignment(0, 0),
@@ -5851,11 +5796,21 @@ class HomeView(ft.Column):
     # ── CREATE ────────────────────────────────────────────────────
     def _open_create(self, e: object) -> None:
         from features.activity.create_activity_view import CreateActivityView
+
+        def handle_dismiss(ev: object) -> None:
+            if sheet in self._page.overlay:
+                self._page.overlay.remove(sheet)
+                try:
+                    self._page.update()
+                except Exception:
+                    pass
+
         sheet = CreateActivityView(
             tokens=self._tokens,
             on_created=lambda: self._page.run_task(self._load_data),
             page=self._page,
         )
+        sheet.on_dismiss = handle_dismiss
         self._page.overlay.append(sheet)
         sheet.open = True
         try:
@@ -5880,6 +5835,21 @@ class HomeView(ft.Column):
 
 
 --- FILE: ./features/__init__.py ---
+
+
+--- FILE: ./describe_image.py ---
+from PIL import Image
+import sys
+
+def analyze(img_path):
+    img = Image.open(img_path).convert("RGB")
+    width, height = img.size
+    print(f"Image size: {width}x{height}")
+    # Sample top-center, bottom-center, left, right, etc.
+    print("Center pixel:", img.getpixel((width//2, height//2)))
+    print("Top-left pixel:", img.getpixel((10, 10)))
+    
+analyze(sys.argv[1])
 
 
 --- FILE: ./tests/test_bottomsheet.py ---

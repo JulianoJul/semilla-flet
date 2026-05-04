@@ -128,18 +128,18 @@ class StepArchetype(ft.Column):
             scale=1.0,
         )
 
-        def _on_tap_down(e: ft.ControlEvent) -> None:
+        def _on_tap_down(e) -> None:
             container.scale = 0.96
             try: container.update()
             except Exception: pass
 
-        def _on_tap_up(e: ft.ControlEvent) -> None:
+        def _on_tap_up(e) -> None:
             container.scale = 1.0
             try: container.update()
             except Exception: pass
             self._select(key)
 
-        def _on_tap_cancel(e: ft.ControlEvent) -> None:
+        def _on_tap_cancel(e) -> None:
             container.scale = 1.0
             try: container.update()
             except Exception: pass

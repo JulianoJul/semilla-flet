@@ -33,14 +33,13 @@ class RitualSheet(ft.BottomSheet):
 
         r = float(tokens.radius_large)
         super().__init__(
-            use_safe_area=True,
+            scrollable=True,
             content=ft.Container(
-                bgcolor=COLOR_BASE,
-                padding=24,
+                padding=ft.Padding(left=24, right=24, top=24, bottom=24),
+                bgcolor=tokens.color_base,
                 border_radius=ft.BorderRadius(r, r, 0, 0),
-                content=ft.SafeArea(
-                    ft.Column(
-                        controls=[
+                content=ft.Column(
+                    controls=[
                             make_text(self._copy("today_title"), TextStyles.heading2),
                             ft.Container(height=8),
                             *rows,
@@ -55,8 +54,6 @@ class RitualSheet(ft.BottomSheet):
                         scroll=ft.ScrollMode.AUTO,
                         spacing=10,
                     ),
-                    bottom=True,
-                ),
             ),
         )
 
@@ -93,7 +90,7 @@ class RitualSheet(ft.BottomSheet):
         try: self._error.update()
         except Exception: pass
 
-    def _handle_confirm(self, e: ft.ControlEvent) -> None:
+    def _handle_confirm(self, e) -> None:
         self._on_confirm(list(self._selected))
         self.open = False
         try: self._page.update()
