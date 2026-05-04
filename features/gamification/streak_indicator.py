@@ -50,7 +50,7 @@ class StreakIndicator(ft.Container):
         super().__init__(
             content=row,
             padding=ft.Padding(left=0, right=0, top=2, bottom=0),
-            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            clip_behavior=ft.ClipBehavior.NONE,
         )
 
     @staticmethod

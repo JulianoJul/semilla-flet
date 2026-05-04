@@ -60,13 +60,16 @@ class StepFirstSeed(ft.Column):
             spacing=8,
         )
 
+        hint_text = self._copy("first_seed_hint").replace(" que ", "\nque ")
         self._field = ft.TextField(
-            hint_text=self._copy("first_seed_hint"),
+            hint_text=hint_text,
             hint_style=ft.TextStyle(color=t.color_text_sub),
             color=t.color_text_main,
             border=ft.InputBorder.NONE,
             text_size=16,
-            multiline=False,
+            multiline=True,
+            min_lines=2,
+            max_lines=2,
             expand=True,
         )
 

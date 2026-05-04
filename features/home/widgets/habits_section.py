@@ -73,7 +73,7 @@ class HabitsSection(ft.Column):
             tokens=self._tokens,
             radius_key="large",
             padding=12,
-            width=100,   # Ancho suficiente para que quepa el indicador
+            width=125,   # Un poco más ancho para evitar que se corten los indicadores
             height=90,   # Altura fija para consistencia visual
         )
 

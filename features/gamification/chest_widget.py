@@ -30,6 +30,7 @@ class ChestWidget(ft.AlertDialog):
             animate_scale=ft.Animation(800, ft.AnimationCurve.ELASTIC_OUT),  # type: ignore
             scale=0.8,
             alignment=ft.Alignment(0, 0),
+            height=85,
         )
         super().__init__(
             modal=True,
@@ -55,9 +56,13 @@ class ChestWidget(ft.AlertDialog):
         )
 
     def _open_chest(self, callback: Callable[[], Any]) -> None:
+        self.actions = []
         self._chest_icon.scale = 1.2
-        try: self._chest_icon.update()
-        except Exception: pass
+        try:
+            self._chest_icon.update()
+            self.update()
+        except Exception:
+            pass
         async def animate() -> None:
             import asyncio
             await asyncio.sleep(0.4)

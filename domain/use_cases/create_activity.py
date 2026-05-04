@@ -73,6 +73,15 @@ class CreateActivityUseCase:
         # if act_type in (ActivityType.DAILY, ActivityType.DEADLINE):
         #     self._add_endowed_checkins(created)
 
+        # --- ADD TO TODAY INTENTIONS (TYPE D) ---
+        if act_type == ActivityType.TODAY_FOCUS:
+            current = self._activity_repo.get_today_intentions()
+            if isinstance(current, Success):
+                ids = [a.id or 0 for a in current.value]
+                if created.id not in ids:
+                    ids.append(created.id or 0)
+                    self._activity_repo.set_today_intentions(ids)
+
         return result
 
     def _add_endowed_checkins(self, activity: Activity) -> None:

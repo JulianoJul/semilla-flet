@@ -94,42 +94,22 @@ class PlantGarden(ft.Container):
             spacing=6,
         )
 
-        # Gradient background via Stack
         r = float(tokens.radius_large)
-        gradient_bg = ft.Container(
-            gradient=ft.LinearGradient(
-                begin=ft.Alignment(-1, -1),
-                end=ft.Alignment(1, 1),
-                colors=[tokens.gradient_subtle_start, tokens.gradient_subtle_end],
-            ),
-            border_radius=ft.BorderRadius(r, r, r, r),
-            expand=True,
-        )
-
-        card = ft.Container(
-            content=ft.Stack(
-                controls=[
-                    gradient_bg,
-                    ft.Container(
-                        content=card_content,
-                        padding=24,
-                    ),
-                ],
-            ),
-            border_radius=ft.BorderRadius(r, r, r, r),
-            shadow=[
-                ft.BoxShadow(
-                    offset=ft.Offset(-t.shadow_offset, -t.shadow_offset),
-                    blur_radius=float(t.shadow_blur),
-                    color=NeuCard._with_opacity(t.shadow_light_opacity, t.color_shadow_light),
+        # Outer NeuCard for consistent shadows
+        card = NeuCard(
+            content=ft.Container(
+                content=card_content,
+                gradient=ft.LinearGradient(
+                    begin=ft.Alignment(-1, -1),
+                    end=ft.Alignment(1, 1),
+                    colors=[tokens.gradient_subtle_start, tokens.gradient_subtle_end],
                 ),
-                ft.BoxShadow(
-                    offset=ft.Offset(t.shadow_offset, t.shadow_offset),
-                    blur_radius=float(t.shadow_blur),
-                    color=NeuCard._with_opacity(t.shadow_dark_opacity, t.color_shadow_dark),
-                ),
-            ],
-            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                padding=24,
+                border_radius=ft.BorderRadius(r, r, r, r),
+            ),
+            tokens=tokens,
+            radius_key="large",
+            padding=0, # Gradient container handles padding
         )
 
         super().__init__(content=card)

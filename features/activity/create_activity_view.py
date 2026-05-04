@@ -109,6 +109,26 @@ class CreateActivityView(ft.BottomSheet):
             expand=True,
         )
 
+        from core.design.neu_checkbox import NeuCheckbox
+        self._repeating_checkbox = NeuCheckbox(
+            checked=False,
+            on_change=lambda c: None,
+            tokens=tokens,
+            box_size=20.0,
+        )
+        
+        repeating_row = ft.GestureDetector(
+            content=ft.Row(
+                controls=[
+                    self._repeating_checkbox,
+                    ft.Text("Este horizonte se repite", size=12, color=tokens.color_text_sub),
+                ],
+                spacing=8,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            on_tap=self._toggle_repeating,
+        )
+
         # Deadline card — visible solo para tipo B
         self._deadline_card = self._field_with_icon(
             field=ft.Column(
@@ -120,15 +140,22 @@ class CreateActivityView(ft.BottomSheet):
                         weight=ft.FontWeight.W_500,
                     ),
                     self._deadline_field,
+                    ft.Container(height=8),
+                    repeating_row,
                 ],
                 spacing=4,
             ),
             icon=ft.Icons.CALENDAR_TODAY,
         )
-        self._deadline_wrapper = ft.AnimatedSwitcher(
-            content=ft.Container(key="empty_deadline"),
-            transition=ft.AnimatedSwitcherTransition.FADE,
-            duration=200,
+        self._deadline_card.key = "deadline_active"
+        
+        self._deadline_container = ft.Container(
+            content=self._deadline_card,
+            height=0,
+            opacity=0,
+            animate_size=ft.Animation(400, ft.AnimationCurve.EASE_OUT),
+            animate_opacity=ft.Animation(300, ft.AnimationCurve.EASE_IN_OUT),
+            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
         )
 
         # Type selector
@@ -218,7 +245,7 @@ class CreateActivityView(ft.BottomSheet):
                     icon=ft.Icons.EDIT_OUTLINED,
                 ),
                 # Deadline (animated)
-                self._deadline_wrapper,
+                self._deadline_container,
                 # Intention field
                 self._field_with_icon(
                     field=ft.Column(
@@ -383,9 +410,11 @@ class CreateActivityView(ft.BottomSheet):
         self._selected_type = code
         self._type_chips_row.controls = self._build_chips()
         if code == "B":
-            self._deadline_wrapper.content = self._deadline_card
+            self._deadline_container.height = None
+            self._deadline_container.opacity = 1.0
         else:
-            self._deadline_wrapper.content = ft.Container(key="empty_deadline")
+            self._deadline_container.height = 0
+            self._deadline_container.opacity = 0.0
         self._confirm_wrapper.content = self._primary_button(
             label=self._confirm_label(),
             on_click=self._handle_save,
@@ -430,6 +459,14 @@ class CreateActivityView(ft.BottomSheet):
             except Exception:
                 pass
 
+    def _toggle_repeating(self, e: ft.TapEvent) -> None:
+        self._repeating_checkbox.checked = not self._repeating_checkbox.checked
+        self._repeating_checkbox._apply_state()
+        try:
+            self._repeating_checkbox.update()
+        except Exception:
+            pass
+
     def _handle_save(self, e: ft.ControlEvent) -> None:
         title = (self._title_field.value or "").strip()
         if not title:
@@ -453,11 +490,21 @@ class CreateActivityView(ft.BottomSheet):
                     pass
                 return
 
+        is_repeating = False
+        if self._selected_type == "B":
+            is_repeating = self._repeating_checkbox.checked
+        elif self._selected_type == "A":
+            is_repeating = True
+
+        from domain.entities.activity import FrequencyConfig
+        freq_config = FrequencyConfig(is_repeating=is_repeating) if (is_repeating or self._selected_type == "B") else None
+
         try:
             from core.container import AppContainer
             res = AppContainer.instance().create_activity_uc.execute(
                 title=title,
                 activity_type=self._selected_type,
+                frequency_config=freq_config,
                 deadline=deadline,
                 implementation_intention=intention,
                 coping_plan=coping,

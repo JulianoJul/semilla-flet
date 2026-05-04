@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Optional
+from typing import Optional, Callable
 
 import flet as ft
 
@@ -44,11 +44,13 @@ class DeadlinesSection(ft.Column):
         self,
         tokens: DesignTokens,
         activities: list[Activity],
+        on_select: Callable[[Activity], None],
         section_title: str = "Horizontes",
         horizon_prefix: str = "Horizonte en",
     ) -> None:
         super().__init__(spacing=12)
         self._tokens = tokens
+        self._on_select = on_select
         cards: list[ft.Control] = [
             self._deadline_card(a, horizon_prefix) for a in activities
         ]
@@ -155,7 +157,10 @@ class DeadlinesSection(ft.Column):
         )
 
         if not urgent:
-            return base_card
+            return ft.GestureDetector(
+                content=base_card,
+                on_tap=lambda e: self._on_select(activity),
+            )
 
         # ── Urgent: Stack with left accent bar ───────────────────
         accent_bar = ft.Container(
@@ -164,15 +169,26 @@ class DeadlinesSection(ft.Column):
             border_radius=ft.BorderRadius(r, 0, 0, r),
         )
 
-        return ft.Stack(
-            controls=[
-                # Card with extra left padding for the bar
-                base_card,
-                # Accent bar pinned to the left
-                ft.Container(
-                    content=accent_bar,
-                    width=4,
-                    alignment=ft.Alignment(-1, 0),
-                ),
-            ],
+        return ft.GestureDetector(
+            content=ft.Stack(
+                controls=[
+                    # Card with extra left padding for the bar
+                    base_card,
+                    # Accent bar pinned to the left
+                    ft.Container(
+                        content=accent_bar,
+                        width=4,
+                        alignment=ft.Alignment(-1, 0),
+                    ),
+                ],
+            ),
+            on_tap=lambda e: self._on_select(activity),
+        )
+
+    def _wrap_in_tap(self, card: ft.Control, activity: Activity) -> ft.Control:
+        if isinstance(card, ft.GestureDetector):
+            return card
+        return ft.GestureDetector(
+            content=card,
+            on_tap=lambda e: self._on_select(activity),
         )

@@ -120,6 +120,7 @@ class HomeView(ft.Column):
             DeadlinesSection(
                 self._tokens,
                 deadlines,
+                on_select=self._handle_today_tap,
                 section_title=self._copy("deadlines_title"),
                 horizon_prefix=self._copy("horizon_prefix"),
             )
@@ -131,6 +132,7 @@ class HomeView(ft.Column):
                 self._tokens,
                 backlog,
                 on_elevate=self._elevate_to_today,
+                on_select=self._handle_today_tap,
                 section_title=self._copy("backlog_title"),
             )
         )
@@ -271,8 +273,19 @@ class HomeView(ft.Column):
 
             ids.append(activity.id or 0)
             c.activity_repo.set_today_intentions(ids[:max_intentions])
+
+            if activity.type == ActivityType.BACKLOG:
+                updated = Activity(
+                    id=activity.id, title=activity.title, type=ActivityType.TODAY_FOCUS,
+                    frequency_config=activity.frequency_config, deadline=activity.deadline,
+                    implementation_intention=activity.implementation_intention,
+                    coping_plan=activity.coping_plan, created_at=activity.created_at,
+                    is_archived=activity.is_archived
+                )
+                c.activity_repo.update_activity(updated)
+
             snack = ft.SnackBar(
-                content=ft.Text(f"🌱 {activity.title} añadida a hoy"),
+                content=ft.Text(f"☀️ {activity.title} añadida a hoy"),
                 bgcolor=self._tokens.color_primary,
                 duration=2000,
             )

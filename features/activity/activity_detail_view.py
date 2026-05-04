@@ -150,43 +150,51 @@ class ActivityDetailView(ft.BottomSheet):
         )
 
         # ── STREAK STATS ────────────────────────────────────────
+        show_stats = True
+        stats_controls = []
+        if activity.type.value in ["C", "D"]:
+            show_stats = False
+        elif activity.type.value == "B":
+            if activity.frequency_config and activity.frequency_config.is_repeating:
+                stats_controls = [
+                    self._stat_col("🔥", str(streak["current"]), "Racha"),
+                    ft.VerticalDivider(color=t.color_shadow_dark + "30", width=1),
+                    self._stat_col("✅", str(streak["total"]), "Total"),
+                ]
+            else:
+                show_stats = False
+        else:
+            stats_controls = [
+                self._stat_col("🔥", str(streak["current"]), "Racha"),
+                ft.VerticalDivider(color=t.color_shadow_dark + "30", width=1),
+                self._stat_col("🏆", str(streak["best"]), "Mejor"),
+                ft.VerticalDivider(color=t.color_shadow_dark + "30", width=1),
+                self._stat_col("✅", str(streak["total"]), "Total"),
+                ft.VerticalDivider(color=t.color_shadow_dark + "30", width=1),
+                self._stat_col("⬡", str(streak["shields"]), "Escudos"),
+            ]
+
         stats_card = NeuCard(
             content=ft.Row(
-                controls=[
-                    self._stat_col("🔥", str(streak["current"]), "Racha"),
-                    ft.VerticalDivider(
-                        color=t.color_shadow_dark + "30",
-                        width=1,
-                    ),
-                    self._stat_col("🏆", str(streak["best"]), "Mejor"),
-                    ft.VerticalDivider(
-                        color=t.color_shadow_dark + "30",
-                        width=1,
-                    ),
-                    self._stat_col("✅", str(streak["total"]), "Total"),
-                    ft.VerticalDivider(
-                        color=t.color_shadow_dark + "30",
-                        width=1,
-                    ),
-                    self._stat_col("⬡", str(streak["shields"]), "Escudos"),
-                ],
+                controls=stats_controls,
                 alignment=ft.MainAxisAlignment.SPACE_AROUND,
             ),
             tokens=t,
             padding=16,
             radius_key="standard",
-        )
+        ) if show_stats else None
 
         # ── WEEKLY PROGRESS (ROLLING 7 DAYS) ────────────────────
         weekly_rate = streak["weekly_rate"]
-        from datetime import date as _date, timedelta as _td, datetime as _dt
-        today_date = _date.today()
+        from datetime import date as _date, timedelta as _td, datetime as _dt, timezone as _tz
+        today_date = _dt.now(_tz.utc).date()
         
         # Build set of all dates that have checkins
         active_dates = set()
         for ci in checkins:
             try:
-                active_dates.add(_dt.fromisoformat(ci[:19]).date())
+                # ci format is 'YYYY-MM-DD HH:MM:SS'
+                active_dates.add(_date.fromisoformat(str(ci)[:10]))
             except Exception:
                 pass
 
@@ -405,47 +413,112 @@ class ActivityDetailView(ft.BottomSheet):
         already_done_today = self._completed_today()
         r_std = float(t.radius_standard)
 
-        # Primary complete button — ambient shadow (not neumorphic per DESIGN.md)
-        complete_btn = ft.Container(
-            content=ft.Row(
-                controls=[
-                    ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, color="#FFFFFF", size=20),
-                    ft.Text(
-                        "Ya completada hoy" if already_done_today else "Marcar como completada",
-                        color="#FFFFFF",
-                        size=15,
-                        weight=ft.FontWeight.W_600,
-                    ),
-                ],
-                alignment=ft.MainAxisAlignment.CENTER,
-                spacing=8,
-            ),
-            bgcolor=t.color_primary,
-            border_radius=ft.BorderRadius(r_std, r_std, r_std, r_std),
-            padding=ft.Padding(left=24, right=24, top=14, bottom=14),
-            shadow=_ambient_shadow(t) if not already_done_today else None,
-            opacity=0.5 if already_done_today else 1.0,
-            on_click=None if already_done_today else self._handle_complete,
-            ink=not already_done_today,
-        )
+        is_repeating_horizon = False
+        if activity.type.value == "B" and activity.frequency_config:
+            is_repeating_horizon = getattr(activity.frequency_config, "is_repeating", False)
 
-        archive_btn = ft.Container(
-            content=ft.Text(
-                "Archivar semilla",
-                color=t.color_accent_alert,
-                size=14,
-                text_align=ft.TextAlign.CENTER,
-            ),
-            alignment=ft.Alignment(0, 0),
-            padding=ft.Padding(left=0, right=0, top=8, bottom=0),
-            on_click=self._handle_archive,
-            ink=True,
-        )
+        buttons = []
+
+        if is_repeating_horizon:
+            # Button 1: Hoy hice un progreso (no archive)
+            progress_btn = ft.Container(
+                content=ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.TRENDING_UP, color="#FFFFFF", size=20),
+                        ft.Text(
+                            "Ya registraste progreso" if already_done_today else "Hoy hice un progreso",
+                            color="#FFFFFF",
+                            size=15,
+                            weight=ft.FontWeight.W_600,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=8,
+                ),
+                bgcolor=t.color_primary,
+                border_radius=ft.BorderRadius(r_std, r_std, r_std, r_std),
+                padding=ft.Padding(left=24, right=24, top=14, bottom=14),
+                shadow=_ambient_shadow(t) if not already_done_today else None,
+                opacity=0.5 if already_done_today else 1.0,
+                on_click=None if already_done_today else lambda e: self._handle_complete(e, archive=False),
+                ink=not already_done_today,
+            )
+            buttons.append(progress_btn)
+            
+            # Button 2: Marcar como completada (archive)
+            complete_horizon_btn = ft.Container(
+                content=ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, color=t.color_primary, size=20),
+                        ft.Text(
+                            "Marcar como completada",
+                            color=t.color_primary,
+                            size=15,
+                            weight=ft.FontWeight.W_600,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=8,
+                ),
+                bgcolor=t.color_base,
+                border=ft.border.all(1, t.color_primary),
+                border_radius=ft.BorderRadius(r_std, r_std, r_std, r_std),
+                padding=ft.Padding(left=24, right=24, top=14, bottom=14),
+                on_click=lambda e: self._handle_complete(e, archive=True),
+                ink=True,
+            )
+            buttons.append(complete_horizon_btn)
+            
+        else:
+            # Original complete_btn
+            complete_btn = ft.Container(
+                content=ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, color="#FFFFFF", size=20),
+                        ft.Text(
+                            "Ya completada hoy" if already_done_today else "Marcar como completada",
+                            color="#FFFFFF",
+                            size=15,
+                            weight=ft.FontWeight.W_600,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=8,
+                ),
+                bgcolor=t.color_primary,
+                border_radius=ft.BorderRadius(r_std, r_std, r_std, r_std),
+                padding=ft.Padding(left=24, right=24, top=14, bottom=14),
+                shadow=_ambient_shadow(t) if not already_done_today else None,
+                opacity=0.5 if already_done_today else 1.0,
+                on_click=None if already_done_today else lambda e: self._handle_complete(e, archive=False),
+                ink=not already_done_today,
+                animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            )
+            buttons.append(complete_btn)
+
+        if activity.type.value == "D":
+            sleep_btn = ft.Container(
+                content=ft.Text("Devolver a dormir 💤", color=t.color_text_sub, size=14, text_align=ft.TextAlign.CENTER),
+                alignment=ft.Alignment(0, 0),
+                padding=ft.Padding(left=0, right=0, top=12, bottom=0),
+                on_click=self._handle_sleep,
+                ink=True,
+            )
+            buttons.append(sleep_btn)
+        else:
+            archive_btn = ft.Container(
+                content=ft.Text("Archivar", color=t.color_accent_alert, size=14, text_align=ft.TextAlign.CENTER),
+                alignment=ft.Alignment(0, 0),
+                padding=ft.Padding(left=0, right=0, top=12, bottom=0),
+                on_click=self._handle_archive,
+                ink=True,
+            )
+            buttons.append(archive_btn)
 
         footer = ft.Container(
             content=ft.Column(
-                controls=[complete_btn, archive_btn],
-                spacing=4,
+                controls=buttons,
+                spacing=8,
             ),
             gradient=ft.LinearGradient(
                 begin=ft.Alignment(0, -1),
@@ -460,8 +533,15 @@ class ActivityDetailView(ft.BottomSheet):
             handle,
             header,
             hero_row,
-            stats_card,
-            weekly_card,
+        ]
+        
+        if stats_card:
+            sections.append(stats_card)
+        
+        if activity.type.value == "A":
+            sections.append(weekly_card)
+            
+        sections.extend([
             *deadline_controls,
             *intention_controls,
             *([NeuCard(
@@ -472,7 +552,7 @@ class ActivityDetailView(ft.BottomSheet):
             ft.Container(height=4),
             footer,
             ft.Container(height=16),
-        ]
+        ])
 
         content = ft.Container(
             bgcolor=t.color_base,
@@ -518,7 +598,7 @@ class ActivityDetailView(ft.BottomSheet):
 
     @staticmethod
     def _type_emoji(type_value: str) -> str:
-        return {"A": "🌱", "B": "🎯", "C": "💤", "D": "⭐"}.get(type_value, "🌿")
+        return {"A": "🌱", "B": "🎯", "C": "💤", "D": "☀️"}.get(type_value, "🌿")
 
     def _handle_close(self, e: object) -> None:
         self.open = False
@@ -528,13 +608,64 @@ class ActivityDetailView(ft.BottomSheet):
             pass
         self._on_dismiss()
 
-    def _handle_complete(self, e: object) -> None:
+    def _handle_complete(self, e: object, archive: bool = False) -> None:
+        if self._completed_today():
+            if archive:
+                try:
+                    from core.container import AppContainer
+                    AppContainer.instance().activity_repo.archive_activity(self._activity.id or 0)
+                except Exception: pass
+                self.open = False
+                try: self._page.update()
+                except Exception: pass
+                self._on_archived()
+            return
+            
+        auto_archive = False
+        if self._activity.type.value in ["C", "D"]:
+            auto_archive = True
+        elif self._activity.type.value == "B":
+            is_repeating = False
+            if self._activity.frequency_config:
+                is_repeating = getattr(self._activity.frequency_config, "is_repeating", False)
+            if not is_repeating:
+                auto_archive = True
+        
+        if archive or auto_archive:
+            try:
+                from core.container import AppContainer
+                AppContainer.instance().activity_repo.archive_activity(self._activity.id or 0)
+            except Exception: pass
+            
         self.open = False
-        try:
-            self._page.update()
-        except Exception:
-            pass
+        try: self._page.update()
+        except Exception: pass
         self._on_complete(self._activity)
+
+    def _handle_sleep(self, e: object) -> None:
+        from core.container import AppContainer
+        from domain.entities.activity import Activity, ActivityType
+        c = AppContainer.instance()
+        
+        # remove from today_intentions
+        today_intentions = c.activity_repo.get_today_intentions().value or []
+        ids = [a.id for a in today_intentions if a.id != self._activity.id and a.id is not None]
+        c.activity_repo.set_today_intentions(ids)
+        
+        # update type back to BACKLOG
+        updated = Activity(
+            id=self._activity.id, title=self._activity.title, type=ActivityType.BACKLOG,
+            frequency_config=self._activity.frequency_config, deadline=self._activity.deadline,
+            implementation_intention=self._activity.implementation_intention,
+            coping_plan=self._activity.coping_plan, created_at=self._activity.created_at,
+            is_archived=self._activity.is_archived
+        )
+        c.activity_repo.update_activity(updated)
+        
+        self.open = False
+        try: self._page.update()
+        except Exception: pass
+        self._on_dismiss()
 
     def _handle_archive(self, e: object) -> None:
         try:
@@ -553,12 +684,13 @@ class ActivityDetailView(ft.BottomSheet):
 
     def _completed_today(self) -> bool:
         try:
-            from datetime import date
+            from datetime import datetime, timezone
             from core.database.db_helper import DBHelper
-            today = date.today().isoformat()
+            # Use UTC to match database storage
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             row = DBHelper.instance().get_connection().execute(
                 "SELECT COUNT(*) as c FROM checkins "
-                "WHERE activity_id=? AND DATE(completed_at)=?",
+                "WHERE activity_id=? AND substr(completed_at, 1, 10)=?",
                 (self._activity.id or 0, today),
             ).fetchone()
             return int(row["c"]) > 0
@@ -604,5 +736,5 @@ class ActivityDetailView(ft.BottomSheet):
             "A": "🌱 Hábito diario",
             "B": "🎯 Horizonte",
             "C": "💤 Semilla en espera",
-            "D": "⭐ Enfoque de hoy",
+            "D": "☀️ Cerca del cultivo",
         }.get(type_value, "Actividad")

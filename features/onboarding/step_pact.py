@@ -79,9 +79,10 @@ class StepPact(ft.Column):
 
         self._checkbox = NeuCheckbox(
             checked=False,
-            on_change=self._handle_check,
+            on_change=lambda c: None,
             tokens=tokens,
-            box_size=28.0,
+            box_size=24.0,
+            disabled=True,
         )
 
         pact_row = ft.Row(
@@ -101,13 +102,19 @@ class StepPact(ft.Column):
         self._btn_container = ft.Container(width=320)
         self._rebuild_btn(disabled=True)
 
+        pact_card = NeuCard(content=pact_row, tokens=tokens, padding=20, width=320)
+        clickable_pact = ft.GestureDetector(
+            content=pact_card,
+            on_tap=self._toggle_pact,
+        )
+
         controls: list[ft.Control] = [
             ft.Container(height=20),
             progress_dots,
             ft.Container(height=20),
             make_text(self._copy("pact_title"), TextStyles.heading2),
             ft.Container(height=8),
-            NeuCard(content=pact_row, tokens=tokens, padding=20, width=320),
+            clickable_pact,
             self._btn_container,
         ]
         self.controls = controls
@@ -137,9 +144,16 @@ class StepPact(ft.Column):
 
     def _handle_check(self, checked: bool) -> None:
         self._accepted = checked
+        self._checkbox.checked = checked
+        self._checkbox._apply_state()
         self._rebuild_btn(disabled=not self._accepted)
-        try: self._btn_container.update()
+        try:
+            self._checkbox.update()
+            self._btn_container.update()
         except Exception: pass
+
+    def _toggle_pact(self, e: ft.TapEvent) -> None:
+        self._handle_check(not self._accepted)
 
     def _handle_confirm(self, e) -> None:
         if not self._accepted:

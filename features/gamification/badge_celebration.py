@@ -26,9 +26,9 @@ class BadgeCelebration(ft.Container):
     ) -> None:
         self._tokens = tokens
         self._page = page
-        self._emoji = ft.Text("🏅", size=64)
-        self._name = make_text("", TextStyles.heading2)
-        self._description = make_text("", TextStyles.body)
+        self._emoji = ft.Text("🏅", size=36)
+        self._name = ft.Text("", size=18, weight=ft.FontWeight.BOLD, color=tokens.color_text_main, text_align=ft.TextAlign.CENTER)
+        self._description = ft.Text("", size=12, color=tokens.color_text_sub, text_align=ft.TextAlign.CENTER)
         card = NeuCard(
             content=ft.Column(
                 controls=[
@@ -43,17 +43,21 @@ class BadgeCelebration(ft.Container):
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=0,
+                tight=True,
             ),
             tokens=tokens,
             radius_key="large",
-            padding=32,
-            width=280,
+            padding=16,
+            width=200,
         )
         super().__init__(
             content=card,
-            bgcolor="#B3000000",  # ~70% opaque black (#AARRGGBB)
+            bgcolor="#B3000000",
             alignment=ft.Alignment(0, 0),
-            expand=True,
+            left=0,
+            top=0,
+            right=0,
+            bottom=0,
             visible=False,
             animate_opacity=300,
             opacity=0.0,
